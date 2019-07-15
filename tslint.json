@@ -1,0 +1,28 @@
+{
+  "defaultSeverity": "error",
+  "extends": ["tslint:recommended"],
+  "rules": {
+    "variable-name": [
+      true,
+      "ban-keywords",
+      "check-format",
+      "allow-pascal-case",
+      "allow-leading-underscore"
+    ],
+    "brace-style": [true, "1tbs", {"allowSingleLine": false}],
+    "max-classes-per-file": false,
+    "ordered-imports": false,
+    "only-arrow-functions": false,
+    "no-var-requires": false,
+    "object-curly-spacing": false,
+    "ter-indent": [false],
+    "semicolon": [true, "always"],
+    "quotemark": [true, "single", "avoid-escape"],
+    "trailing-comma": [true, "never"],
+    "triple-equals": [true, "allow-undefined-check"],
+    "max-line-length": [true, 160]
+  },
+  "rulesDirectory": [
+    "node_modules/tslint-eslint-rules/dist/rules"
+  ]
+}

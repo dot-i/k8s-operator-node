@@ -1,0 +1,20 @@
+language: node_js
+node_js:
+- "10"
+
+before_install:
+  # Pre check to check that version matches package-lock.json
+  # needs to happen before npm install
+  - node version-check.js
+
+install:
+- npm install -g markdownlint-cli
+- npm install
+
+jobs:
+  include:
+    - stage: "lint"
+      name: "Lint"
+      script:
+      - npm run lint
+      - markdownlint -c .mdlintrc *.md
