@@ -133,7 +133,7 @@ If your custom resource definition contains a status section you can set the sta
 protected async patchResourceStatus(meta: IResourceMeta, status: any): Promise<void>
 ```
 
-If your custom resource definition contains a status section you can patch the status of your resources using `patchResourceStatus()`. The resource object to set the status on is identified by passing in the `meta` field from the event you received. `status` is a JSON Merge patch object as described in **RFC 7386** (https://tools.ietf.org/html/rfc7386)
+If your custom resource definition contains a status section you can patch the status of your resources using `patchResourceStatus()`. The resource object to set the status on is identified by passing in the `meta` field from the event you received. `status` is a JSON Merge patch object as described in **RFC 7386** (<https://tools.ietf.org/html/rfc7386>).
 
 #### registerCustomResourceDefinition
 
