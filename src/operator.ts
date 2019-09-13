@@ -86,21 +86,6 @@ export default abstract class Operator {
     }
 
     /**
-     * Watch a custom resource.
-     * @param group The group of the custom resource
-     * @param version The version of the custom resource
-     * @param plural The plural name of the custom resource
-     * @param onEvent The async callback for added, modified or deleted events on the custom resource
-     */
-    protected async watchCustomResource(group: string, version: string, plural: string, onEvent: (event: IResourceEvent) => Promise<void>) {
-        const result = await this.k8sExtensionsApi.readCustomResourceDefinition(`${plural}.${group}`);
-        if (result.response.statusCode !== 200) {
-            this._logger.error(`Failed to get custom resource ${plural}.${group}: ${result.response.statusCode}`);
-        }
-        await this.watchResource(group, version, plural, onEvent);
-    }
-
-    /**
      * Watch a Kubernetes resource.
      * @param group The group of the resource or an empty string for core resources
      * @param version The version of the resource
@@ -118,6 +103,7 @@ export default abstract class Operator {
         //
         const uri = group ? `/apis/${group}/${version}/${plural}` : `/api/${version}/${plural}`;
         const watch = new k8s.Watch(this.kubeConfig);
+
         const startWatch = () => this._watchRequests[id] = watch.watch(uri, {},
             (type, obj) => this._eventQueue.push({
                 event: {
@@ -128,7 +114,9 @@ export default abstract class Operator {
                 onEvent
             }),
             (err: any) => {
-                this._logger.warn(`restarting watch on resource ${id}`);
+                if (err) {
+                    this._logger.warn(`restarting watch on resource ${id} (reason: ${JSON.stringify(err)})`);
+                }
                 setTimeout(startWatch, 100);
             });
         startWatch();
@@ -143,9 +131,9 @@ export default abstract class Operator {
      */
     protected async setResourceStatus(meta: IResourceMeta, status: any): Promise<IResourceMeta> {
         const requestOptions: request.Options = this.buildResourceStatusRequest(meta, status, false);
-        const responseBody = await request.put(requestOptions, (error, response, _) => {
+        const responseBody = await request.put(requestOptions, (error, res, _) => {
             if (error) {
-                this._logger.error(error.message || error);
+                this._logger.error(error.message || JSON.stringify(error));
                 return '';
             }
         });
@@ -160,9 +148,9 @@ export default abstract class Operator {
     protected async patchResourceStatus(meta: IResourceMeta, status: any): Promise<IResourceMeta> {
         try {
             const requestOptions = this.buildResourceStatusRequest(meta, status, true);
-            const responseBody = await request.patch(requestOptions, (error, response, _) => {
+            const responseBody = await request.patch(requestOptions, (error, res, _) => {
                 if (error) {
-                    this._logger.error(error.message || error);
+                    this._logger.error(error.message || JSON.stringify(error));
                     return '';
                 }
             });
