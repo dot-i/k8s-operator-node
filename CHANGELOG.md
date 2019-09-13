@@ -13,3 +13,8 @@
 
 - Removed `watchCustomResource()` as it made little sense to use this in practice due to the required permissions. Just use `watchResource()`.
 - Small tweaks.
+
+#### 0.3.1 (2019-09-13)
+
+- Removed `watchCustomResource()` from `README.md`.
+- Updated to TypeScript 3.6.3.

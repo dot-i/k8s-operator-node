@@ -70,7 +70,9 @@ interface IOperatorLogger {
 protected abstract async init(): Promise<void>
 ```
 
-Implement this method on your own operator class to initialize one or more resource watches. Call either `watchResource()` or `watchCustomResource()` on as many resources as you need.
+Implement this method on your own operator class to initialize one or more resource watches. Call `watchResource()` on as many resources as you need.
+
+*NOTE:* if you need to initialize other things, place your watches at the end of the `init()` method to avoid running the risk of accessing uninitialized dependencies.
 
 #### watchResource
 
@@ -109,15 +111,6 @@ enum ResourceEventType {
 ```
 
 `object` will contain the actual resource object as received from the **Kubernetes** API.
-
-#### watchCustomResource
-
-```javascript
-protected async watchCustomResource(group: string, version: string, plural: string,
-                                    onEvent: (event: IResourceEvent) => Promise<void>): Promise<void>
-```
-
-Almost identical to `watchResource()` but will validate the custom resource definition exists before starting the watch.
 
 #### setResourceStatus
 
@@ -187,7 +180,7 @@ export default class MyOperator extends Operator {
 
     protected async init() {
         // NOTE: we pass the plural name of the resource
-        await this.watchCustomResource('dot-i.eu', 'v1', 'mycustomresources', async (e) => {
+        await this.watchResource('dot-i.eu', 'v1', 'mycustomresources', async (e) => {
             switch (e.type) {
                 case ResourceEventType.Added:
                 case ResourceEventType.Modified:
@@ -229,7 +222,7 @@ export default class MyCustomResourceOperator extends Operator {
     protected async init() {
         const crdFile = Path.resolve(__dirname, '..', 'your-crd.yaml');
         const { group, versions, plural } = await this.registerCustomResourceDefinition(crdFile);
-        await this.watchCustomResource(group, versions[0].name, plural, async (e) => {
+        await this.watchResource(group, versions[0].name, plural, async (e) => {
             // ...
         });
     }
