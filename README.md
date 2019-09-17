@@ -78,7 +78,7 @@ Implement this method on your own operator class to initialize one or more resou
 
 ```javascript
 protected async watchResource(group: string, version: string, plural: string,
-                              onEvent: (event: IResourceEvent) => Promise<void>): Promise<void>
+    onEvent: (event: IResourceEvent) => Promise<void>): Promise<void>
 ```
 
 Start watching a **Kubernetes** resource. Pass in the resource's group, version and plural name. For "core" resources `group` must be set to an empty string.
@@ -127,6 +127,27 @@ protected async patchResourceStatus(meta: IResourceMeta, status: any): Promise<v
 ```
 
 If your custom resource definition contains a status section you can patch the status of your resources using `patchResourceStatus()`. The resource object to set the status on is identified by passing in the `meta` field from the event you received. `status` is a JSON Merge patch object as described in **RFC 7386** (<https://tools.ietf.org/html/rfc7386>).
+
+#### handleResourceFinalizer
+
+```javascript
+protected async handleResourceFinalizer(event: IResourceEvent, finalizer: string,
+    deleteAction: (event: IResourceEvent) => Promise<void>): Promise<boolean>
+```
+
+Handle deletion of your resource using your unique finalizer.
+
+If the resource doesn't have your finalizer set yet, it will be added. If the finalizer is set and the resource is marked for deletion by **Kubernetes** your `deleteAction` action will be called and the finalizer will be removed (so **Kubernetes** will actually delete it).
+
+If this method returns `true` the event is fully handled, if it returns `false` you still need to process the added or modified event.
+
+#### setResourceFinalizers
+
+```javascript
+protected async setResourceFinalizers(meta: IResourceMeta, finalizers: string[]): Promise<void>
+```
+
+Set the finalizers on the **Kubernetes** resource defined by `meta`.  Typically you will not use this method, but use `handleResourceFinalizer` to handle the complete delete logic.
 
 #### registerCustomResourceDefinition
 
@@ -180,13 +201,15 @@ export default class MyOperator extends Operator {
 
     protected async init() {
         // NOTE: we pass the plural name of the resource
-        await this.watchResource('dot-i.eu', 'v1', 'mycustomresources', async (e) => {
-            switch (e.type) {
-                case ResourceEventType.Added:
-                case ResourceEventType.Modified:
-                    return this.resourceModified(e);
-                case ResourceEventType.Deleted:
-                    return this.resourceDeleted(e);
+        await this.watchResource('dot-i.com', 'v1', 'mycustomresources', async (e) => {
+            try {
+                if (e.type === ResourceEventType.Added || e.type === ResourceEventType.Modified) {
+                    if (!await this.handleResourceFinalizer(e, 'mycustomresources.dot-i.com', (event) => this.resourceDeleted(event))) {
+                        await this.resourceModified(e);
+                    }
+                }
+            } catch (err) {
+                // Log here...
             }
         });
     }
@@ -214,6 +237,8 @@ export default class MyOperator extends Operator {
 ### Register a custom resource definition from the operator
 
 It is possible to register a custom resource definition directly from the operator code, from your `init()` method.
+
+Be aware your operator will need the required roles to be able do this. It's recommended to create the CRD as part of the installation of your operator.
 
 ```javascript
 import * as Path from 'path';

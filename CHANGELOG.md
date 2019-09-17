@@ -18,3 +18,7 @@
 
 - Removed `watchCustomResource()` from `README.md`.
 - Updated to TypeScript 3.6.3.
+
+#### 0.4.0 (2019-09-17)
+
+- added `handleResourceFinalizer()` and `setResourceFinalizers()` to easily implement robust handling of the deletion a resource (using finalizers).

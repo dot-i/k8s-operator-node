@@ -14,7 +14,7 @@ export default abstract class Operator {
     protected k8sExtensionsApi: k8s.ApiextensionsV1beta1Api;
 
     private _logger: IOperatorLogger;
-    private _statusPathBuilders: { [id: string]: (meta: IResourceMeta) => string; } = {};
+    private _resourcePathBuilders: { [id: string]: (meta: IResourceMeta) => string; } = {};
     private _watchRequests: { [id: string]: any; } = {};
     private _eventQueue: Async.AsyncQueue<{ event: IResourceEvent, onEvent: (event: IResourceEvent) => Promise<void> }>;
 
@@ -96,7 +96,7 @@ export default abstract class Operator {
         const apiVersion = group ? `${group}/${version}` : `${version}`;
         const id = `${plural}.${apiVersion}`;
 
-        this._statusPathBuilders[id] = (meta: IResourceMeta) => this.getCustomResourceApiUri(group, version, plural, meta.namespace) + `/${meta.name}/status`;
+        this._resourcePathBuilders[id] = (meta: IResourceMeta) => this.getCustomResourceApiUri(group, version, plural, meta.namespace);
 
         //
         // Create "infinite" watch so we automatically recover in case the stream stops or gives an error.
@@ -146,18 +146,75 @@ export default abstract class Operator {
      * @param status The status body to set in JSON Merge Patch format (https://tools.ietf.org/html/rfc7386)
      */
     protected async patchResourceStatus(meta: IResourceMeta, status: any): Promise<IResourceMeta> {
-        try {
-            const requestOptions = this.buildResourceStatusRequest(meta, status, true);
-            const responseBody = await request.patch(requestOptions, (error, res, _) => {
-                if (error) {
-                    this._logger.error(error.message || JSON.stringify(error));
-                    return '';
-                }
-            });
-            return ResourceMeta.createWithId(meta.id, JSON.parse(responseBody));
-        } catch (error) {
-            throw error;
+        const requestOptions = this.buildResourceStatusRequest(meta, status, true);
+        const responseBody = await request.patch(requestOptions, (error, res, _) => {
+            if (error) {
+                this._logger.error(error.message || JSON.stringify(error));
+                return '';
+            }
+        });
+        return ResourceMeta.createWithId(meta.id, JSON.parse(responseBody));
+    }
+
+    /**
+     * Handle deletion of resource using a unique finalizer. Call this when you receive an added or modified event.
+     *
+     * If the resource doesn't have the finalizer set yet, it will be added. If the finalizer is set and the resource
+     * is marked for deletion by Kubernetes your 'deleteAction' action will be called and the finalizer will be removed.
+     * @param event The added or modified event.
+     * @param finalizer Your unique finalizer string
+     * @param deleteAction An async action that will be called before your resource is deleted.
+     * @returns True if no further action is needed, false if you still need to process the added or modified event yourself.
+     */
+    protected async handleResourceFinalizer(event: IResourceEvent, finalizer: string,
+                                            deleteAction: (event: IResourceEvent) => Promise<void>): Promise<boolean> {
+        const metadata = event.object.metadata;
+        if (!metadata || (event.type !== ResourceEventType.Added && event.type !== ResourceEventType.Modified)) {
+            return false;
         }
+        if (!metadata.deletionTimestamp && (!metadata.finalizers || !metadata.finalizers.includes(finalizer))) {
+            // Make sure our finalizer is added when the resource is first created.
+            const finalizers = metadata.finalizers || [];
+            finalizers.push(finalizer);
+            await this.setResourceFinalizers(event.meta, finalizers);
+            return true;
+        } else if (metadata.deletionTimestamp && metadata.finalizers && metadata.finalizers.includes(finalizer)) {
+            // Resource is marked for deletion with our finalizer still set.
+            // So remove the roles and/or delete the technical identity we created, and then clear the finalizer
+            // so the resource will actually be deleted by Kubernetes.
+            await deleteAction(event);
+            const finalizers = metadata.finalizers.filter((f) => f !== finalizer);
+            await this.setResourceFinalizers(event.meta, finalizers);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Set (or clear) the finalizers of a resource.
+     * @param meta The resource to update
+     * @param finalizers The array of finalizers for this resource
+     */
+    protected async setResourceFinalizers(meta: IResourceMeta, finalizers: string[]): Promise<void> {
+        const requestOptions: request.Options = {
+            body: JSON.stringify({
+                metadata: {
+                    finalizers
+                }
+            }),
+            uri: `${this._resourcePathBuilders[meta.id](meta)}/${meta.name}`
+        };
+        requestOptions.headers = {
+            'Content-Type': 'application/merge-patch+json'
+        };
+        this.kubeConfig.applyToRequest(requestOptions);
+
+        await request.patch(requestOptions, async (error, r, b) => {
+            if (error) {
+                this._logger.error(error.message || JSON.stringify(error));
+                return;
+            }
+        });
     }
 
     private buildResourceStatusRequest(meta: IResourceMeta, status: any, isPatch: boolean): request.Options {
@@ -175,7 +232,7 @@ export default abstract class Operator {
         }
         const requestOptions: request.Options = {
             body: JSON.stringify(body),
-            uri: this._statusPathBuilders[meta.id](meta)
+            uri: this._resourcePathBuilders[meta.id](meta) + `/${meta.name}/status`
         };
         if (isPatch) {
             requestOptions.headers = {
