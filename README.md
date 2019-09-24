@@ -57,7 +57,7 @@ process.on('SIGTERM', () => exit('SIGTERM'))
 You can pass on optional logger to the constructor. It must implement this interface:
 
 ```javascript
-interface IOperatorLogger {
+interface OperatorLogger {
     info(message: string): void;
     warn(message: string): void;
     error(message: string): void;
@@ -78,7 +78,7 @@ Implement this method on your own operator class to initialize one or more resou
 
 ```javascript
 protected async watchResource(group: string, version: string, plural: string,
-    onEvent: (event: IResourceEvent) => Promise<void>): Promise<void>
+    onEvent: (event: ResourceEvent) => Promise<void>): Promise<void>
 ```
 
 Start watching a **Kubernetes** resource. Pass in the resource's group, version and plural name. For "core" resources `group` must be set to an empty string.
@@ -88,13 +88,13 @@ The `onEvent` callback will be called for each resource event that comes in from
 A resource event is defined as follows:
 
 ```javascript
-interface IResourceEvent {
-    meta: IResourceMeta;
+interface ResourceEvent {
+    meta: ResourceMeta;
     type: ResourceEventType;
     object: any;
 }
 
-interface IResourceMeta {
+interface ResourceMeta {
     name: string;
     namespace: string;
     id: string;
@@ -115,7 +115,7 @@ enum ResourceEventType {
 #### setResourceStatus
 
 ```javascript
-protected async setResourceStatus(meta: IResourceMeta, status: any): Promise<void>
+protected async setResourceStatus(meta: ResourceMeta, status: any): Promise<void>
 ```
 
 If your custom resource definition contains a status section you can set the status of your resources using `setResourceStatus()`. The resource object to set the status on is identified by passing in the `meta` field from the event you received.
@@ -123,7 +123,7 @@ If your custom resource definition contains a status section you can set the sta
 #### patchResourceStatus
 
 ```javascript
-protected async patchResourceStatus(meta: IResourceMeta, status: any): Promise<void>
+protected async patchResourceStatus(meta: ResourceMeta, status: any): Promise<void>
 ```
 
 If your custom resource definition contains a status section you can patch the status of your resources using `patchResourceStatus()`. The resource object to set the status on is identified by passing in the `meta` field from the event you received. `status` is a JSON Merge patch object as described in **RFC 7386** (<https://tools.ietf.org/html/rfc7386>).
@@ -131,8 +131,8 @@ If your custom resource definition contains a status section you can patch the s
 #### handleResourceFinalizer
 
 ```javascript
-protected async handleResourceFinalizer(event: IResourceEvent, finalizer: string,
-    deleteAction: (event: IResourceEvent) => Promise<void>): Promise<boolean>
+protected async handleResourceFinalizer(event: ResourceEvent, finalizer: string,
+    deleteAction: (event: ResourceEvent) => Promise<void>): Promise<boolean>
 ```
 
 Handle deletion of your resource using your unique finalizer.
@@ -144,7 +144,7 @@ If this method returns `true` the event is fully handled, if it returns `false` 
 #### setResourceFinalizers
 
 ```javascript
-protected async setResourceFinalizers(meta: IResourceMeta, finalizers: string[]): Promise<void>
+protected async setResourceFinalizers(meta: ResourceMeta, finalizers: string[]): Promise<void>
 ```
 
 Set the finalizers on the **Kubernetes** resource defined by `meta`.  Typically you will not use this method, but use `handleResourceFinalizer` to handle the complete delete logic.
@@ -166,7 +166,7 @@ You can optionally register a custom resource definition from code, to auto-crea
 ### Operator that watches namespaces
 
 ```javascript
-import Operator, { ResourceEventType, IResourceEvent } from '@dot-i/k8s-operator';
+import Operator, { ResourceEventType, ResourceEvent } from '@dot-i/k8s-operator';
 
 export default class MyOperator extends Operator {
     protected async init() {
@@ -192,7 +192,7 @@ export default class MyOperator extends Operator {
 ### Operator that watches a custom resource
 
 ```javascript
-import Operator, { ResourceEventType, IResourceEvent } from '@dot-i/k8s-operator';
+import Operator, { ResourceEventType, ResourceEvent } from '@dot-i/k8s-operator';
 
 export default class MyOperator extends Operator {
     constructor() {
@@ -214,7 +214,7 @@ export default class MyOperator extends Operator {
         });
     }
 
-    private async resourceModified(e: IResourceEvent) {
+    private async resourceModified(e: ResourceEvent) {
         const object = e.object;
         const metadata = object.metadata;
 
@@ -228,7 +228,7 @@ export default class MyOperator extends Operator {
         }
     }
 
-    private async resourceDeleted(e: IResourceEvent) {
+    private async resourceDeleted(e: ResourceEvent) {
         // TODO: handle resource deletion here
     }
 }
