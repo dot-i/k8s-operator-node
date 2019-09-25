@@ -27,3 +27,7 @@
 
 - switched to ESLint _(TSLint is deprecated)_
 - some small breaking changes to interface names due to compliance with standard ESLint rules now (`ResourceEvent`, `ResourceMeta` and `OperatorLogger`)
+
+### 0.5.1 (2019-09-25)
+
+- tweaked `handleResourceFinalizer()` to always return 'true' if the resource is marked for deletion

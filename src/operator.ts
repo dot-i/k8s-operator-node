@@ -255,7 +255,7 @@ export default abstract class Operator {
      * @returns True if no further action is needed, false if you still need to process the added or modified event yourself.
      */
     protected async handleResourceFinalizer(event: ResourceEvent, finalizer: string,
-                                            deleteAction: (event: ResourceEvent) => Promise<void>): Promise<boolean> {
+        deleteAction: (event: ResourceEvent) => Promise<void>): Promise<boolean> {
         const metadata = event.object.metadata;
         if (!metadata || (event.type !== ResourceEventType.Added && event.type !== ResourceEventType.Modified)) {
             return false;
@@ -266,13 +266,15 @@ export default abstract class Operator {
             finalizers.push(finalizer);
             await this.setResourceFinalizers(event.meta, finalizers);
             return true;
-        } else if (metadata.deletionTimestamp && metadata.finalizers && metadata.finalizers.includes(finalizer)) {
-            // Resource is marked for deletion with our finalizer still set.
-            // So remove the roles and/or delete the technical identity we created, and then clear the finalizer
-            // so the resource will actually be deleted by Kubernetes.
-            await deleteAction(event);
-            const finalizers = metadata.finalizers.filter((f) => f !== finalizer);
-            await this.setResourceFinalizers(event.meta, finalizers);
+        } else if (metadata.deletionTimestamp) {
+            if (metadata.finalizers && metadata.finalizers.includes(finalizer)) {
+                // Resource is marked for deletion with our finalizer still set. So run the delete action
+                // and clear the finalizer, so the resource will actually be deleted by Kubernetes.
+                await deleteAction(event);
+                const finalizers = metadata.finalizers.filter((f) => f !== finalizer);
+                await this.setResourceFinalizers(event.meta, finalizers);
+            }
+            // Resource is marked for deletion, so don't process it further.
             return true;
         }
         return false;
