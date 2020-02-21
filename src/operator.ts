@@ -2,8 +2,7 @@ import * as Async from 'async';
 import * as FS from 'fs';
 import * as YAML from 'js-yaml';
 import * as k8s from '@kubernetes/client-node';
-import * as request from 'request';
-import * as util from 'util';
+import * as request from 'request-promise-native';
 import { KubernetesObject, V1beta1CustomResourceDefinitionVersion } from '@kubernetes/client-node';
 
 /**
@@ -219,9 +218,12 @@ export default abstract class Operator {
      */
     protected async setResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
         const requestOptions: request.Options = this.buildResourceStatusRequest(meta, status, false);
-        const put = util.promisify(request.put);
         try {
-            const responseBody = await put(requestOptions, undefined);
+            const responseBody = await request.put(requestOptions, err => {
+                if (err) {
+                    this._logger.error(err.message || JSON.stringify(err));
+                }
+            });
             return ResourceMetaImpl.createWithId(meta.id, JSON.parse(responseBody as string));
         }
         catch (err) {
@@ -237,9 +239,12 @@ export default abstract class Operator {
      */
     protected async patchResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
         const requestOptions = this.buildResourceStatusRequest(meta, status, true);
-        const patch = util.promisify(request.patch);
         try {
-            const responseBody = await patch(requestOptions, undefined);
+            const responseBody = await request.patch(requestOptions, err => {
+                if (err) {
+                    this._logger.error(err.message || JSON.stringify(err));
+                }
+            });
             return ResourceMetaImpl.createWithId(meta.id, JSON.parse(responseBody as string));
         }
         catch (err) {

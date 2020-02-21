@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 0.6.1 (2020-02-21)
+
+- back to using `request-promise-native`
+
 ### 0.6.0 (2020-02-21)
 
 - removed dependency on `request-promise-native`
