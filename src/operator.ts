@@ -2,7 +2,8 @@ import * as Async from 'async';
 import * as FS from 'fs';
 import * as YAML from 'js-yaml';
 import * as k8s from '@kubernetes/client-node';
-import * as request from 'request-promise-native';
+import * as request from 'request';
+import * as util from 'util';
 import { KubernetesObject, V1beta1CustomResourceDefinitionVersion } from '@kubernetes/client-node';
 
 /**
@@ -76,9 +77,8 @@ class ResourceMetaImpl implements ResourceMeta {
     public kind: string;
 
     private constructor(id: string, object: KubernetesObject) {
-        if (!object.metadata
-            || !object.metadata.name
-            || !object.metadata.resourceVersion
+        if (!object.metadata?.name
+            || !object.metadata?.resourceVersion
             || !object.apiVersion
             || !object.kind) {
             throw Error(`Malformed event object for '${id}'`);
@@ -192,7 +192,7 @@ export default abstract class Operator {
         const uri = group ? `/apis/${group}/${version}/${plural}` : `/api/${version}/${plural}`;
         const watch = new k8s.Watch(this.kubeConfig);
 
-        const startWatch = (): void => this._watchRequests[id] = watch.watch(uri, {},
+        const startWatch = async (): Promise<void> => this._watchRequests[id] = await watch.watch(uri, {},
             (type, obj) => this._eventQueue.push({
                 event: {
                     meta: ResourceMetaImpl.createWithPlural(plural, obj),
@@ -207,7 +207,7 @@ export default abstract class Operator {
                 }
                 setTimeout(startWatch, 100);
             });
-        startWatch();
+        await startWatch();
 
         this._logger.info(`watching resource ${id}`);
     }
@@ -217,15 +217,17 @@ export default abstract class Operator {
      * @param meta The resource to update
      * @param status The status body to set
      */
-    protected async setResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta> {
+    protected async setResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
         const requestOptions: request.Options = this.buildResourceStatusRequest(meta, status, false);
-        const responseBody = await request.put(requestOptions, error => {
-            if (error) {
-                this._logger.error(error.message || JSON.stringify(error));
-                return '';
-            }
-        });
-        return ResourceMetaImpl.createWithId(meta.id, JSON.parse(responseBody));
+        const put = util.promisify(request.put);
+        try {
+            const responseBody = await put(requestOptions, undefined);
+            return ResourceMetaImpl.createWithId(meta.id, JSON.parse(responseBody as string));
+        }
+        catch (err) {
+            this._logger.error(err.message || JSON.stringify(err));
+            return null;
+        }
     }
 
     /**
@@ -233,15 +235,17 @@ export default abstract class Operator {
      * @param meta The resource to update
      * @param status The status body to set in JSON Merge Patch format (https://tools.ietf.org/html/rfc7386)
      */
-    protected async patchResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta> {
+    protected async patchResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
         const requestOptions = this.buildResourceStatusRequest(meta, status, true);
-        const responseBody = await request.patch(requestOptions, error => {
-            if (error) {
-                this._logger.error(error.message || JSON.stringify(error));
-                return '';
-            }
-        });
-        return ResourceMetaImpl.createWithId(meta.id, JSON.parse(responseBody));
+        const patch = util.promisify(request.patch);
+        try {
+            const responseBody = await patch(requestOptions, undefined);
+            return ResourceMetaImpl.createWithId(meta.id, JSON.parse(responseBody as string));
+        }
+        catch (err) {
+            this._logger.error(err.message || JSON.stringify(err));
+            return null;
+        }
     }
 
     /**
@@ -262,7 +266,7 @@ export default abstract class Operator {
         }
         if (!metadata.deletionTimestamp && (!metadata.finalizers || !metadata.finalizers.includes(finalizer))) {
             // Make sure our finalizer is added when the resource is first created.
-            const finalizers = metadata.finalizers || [];
+            const finalizers = metadata.finalizers ?? [];
             finalizers.push(finalizer);
             await this.setResourceFinalizers(event.meta, finalizers);
             return true;
