@@ -212,6 +212,51 @@ export default abstract class Operator {
     }
 
     /**
+     * Watch a namespaced Kubernetes resource.
+     * @param group The group of the resource or an empty string for core resources
+     * @param version The version of the resource
+     * @param plural The plural name of the resource
+     * @param namespace The namespace which the resource is in
+     * @param onEvent The async callback for added, modified or deleted events on the resource
+     */
+    protected async watchNamespacedResource(group: string, version: string, plural: string, onEvent: (event: ResourceEvent) => Promise<void>, namespace?: string): Promise<void> {
+        const apiVersion = group ? `${group}/${version}` : `${version}`;
+        const id = `${plural}.${apiVersion}`;
+
+        this._resourcePathBuilders[id] = (meta: ResourceMeta): string => this.getCustomResourceApiUri(group, version, plural, meta.namespace);
+
+        //
+        // Create "infinite" watch so we automatically recover in case the stream stops or gives an error.
+        //
+        let uri = group ? `/apis/${group}/${version}/` : `/api/${version}/`;
+        if (namespace) {
+            uri += `namespaces/${namespace}/`;
+        }
+        uri += plural;
+
+        const watch = new k8s.Watch(this.kubeConfig);
+
+        const startWatch = async (): Promise<void> => this._watchRequests[id] = await watch.watch(uri, {},
+            (type, obj) => this._eventQueue.push({
+                event: {
+                    meta: ResourceMetaImpl.createWithPlural(plural, obj),
+                    object: obj,
+                    type: type as ResourceEventType
+                },
+                onEvent
+            }),
+            err => {
+                if (err) {
+                    this._logger.warn(`restarting watch on resource ${id} (reason: ${JSON.stringify(err)})`);
+                }
+                setTimeout(startWatch, 100);
+            });
+        await startWatch();
+
+        this._logger.info(`watching resource ${id}`);
+    }
+
+    /**
      * Set the status subresource of a custom resource (if it has one defined).
      * @param meta The resource to update
      * @param status The status body to set
