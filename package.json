@@ -44,7 +44,7 @@
     "clean": "rm -Rf node_modules/ dist/",
     "build": "tsc",
     "watch": "tsc --watch",
-    "install": "npm run build"
+    "prepare": "npm run build"
   },
   "keywords": [
     "kubernetes",
