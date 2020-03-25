@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 1.0.0 (2020-03-25)
+
+- graduated to stable
+- upgraded some dependencies
+
 ### 0.6.1 (2020-02-21)
 
 - back to using `request-promise-native`
