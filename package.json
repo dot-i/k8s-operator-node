@@ -1,6 +1,6 @@
 {
   "name": "@dot-i/k8s-operator",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Build Kubernetes operators in NodeJS (and TypeScript)",
   "author": {
     "name": "Nico Francois",
@@ -36,6 +36,7 @@
     "@typescript-eslint/eslint-plugin": "^2.25.0",
     "@typescript-eslint/parser": "^2.25.0",
     "eslint": "^6.8.0",
+    "mkdirp": "^0.5.5",
     "ts-node": "^8.8.1",
     "typescript": "^3.8.3"
   },

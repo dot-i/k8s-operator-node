@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.0.1 (2020-04-06)
+
+- fixed minimist security advisory warning
+
 ### 1.0.0 (2020-03-25)
 
 - graduated to stable
