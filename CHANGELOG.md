@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.0.2 (2020-05-04)
+
+- updated dependency on @kubernetes/client-node to 0.11.2
+
 ### 1.0.1 (2020-04-06)
 
 - fixed minimist security advisory warning
