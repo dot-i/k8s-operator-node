@@ -78,10 +78,10 @@ Implement this method on your own operator class to initialize one or more resou
 
 ```javascript
 protected async watchResource(group: string, version: string, plural: string,
-    onEvent: (event: ResourceEvent) => Promise<void>): Promise<void>
+    onEvent: (event: ResourceEvent) => Promise<void>): Promise<void>, namespace?: string
 ```
 
-Start watching a **Kubernetes** resource. Pass in the resource's group, version and plural name. For "core" resources `group` must be set to an empty string.
+Start watching a **Kubernetes** resource. Pass in the resource's group, version and plural name. For "core" resources `group` must be set to an empty string. The last parameter is optional and allows you to limit the watch to the given namespace.
 
 The `onEvent` callback will be called for each resource event that comes in from the **Kubernetes** API.
 

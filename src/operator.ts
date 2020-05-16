@@ -178,8 +178,9 @@ export default abstract class Operator {
      * @param version The version of the resource
      * @param plural The plural name of the resource
      * @param onEvent The async callback for added, modified or deleted events on the resource
+     * @param namespace The namespace of the resource (optional)
      */
-    protected async watchResource(group: string, version: string, plural: string, onEvent: (event: ResourceEvent) => Promise<void>): Promise<void> {
+    protected async watchResource(group: string, version: string, plural: string, onEvent: (event: ResourceEvent) => Promise<void>, namespace?: string): Promise<void> {
         const apiVersion = group ? `${group}/${version}` : `${version}`;
         const id = `${plural}.${apiVersion}`;
 
@@ -188,7 +189,12 @@ export default abstract class Operator {
         //
         // Create "infinite" watch so we automatically recover in case the stream stops or gives an error.
         //
-        const uri = group ? `/apis/${group}/${version}/${plural}` : `/api/${version}/${plural}`;
+        let uri = group ? `/apis/${group}/${version}/` : `/api/${version}/`;
+        if (namespace) {
+            uri += `namespaces/${namespace}/`;
+        }
+        uri += plural;
+
         const watch = new k8s.Watch(this.kubeConfig);
 
         const startWatch = async (): Promise<void> => this._watchRequests[id] = await watch.watch(uri, {},
