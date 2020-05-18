@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 1.0.3 (2020-05-04)
+
+- `watchResource()` now has an optional `namespace` parameter
+- updated dependencies
+
 ### 1.0.2 (2020-05-04)
 
 - updated dependency on @kubernetes/client-node to 0.11.2
