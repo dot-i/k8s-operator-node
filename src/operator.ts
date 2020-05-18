@@ -9,12 +9,17 @@ import { KubernetesObject, V1beta1CustomResourceDefinitionVersion } from '@kuber
  * Logger interface.
  */
 export interface OperatorLogger {
+    debug(message: string): void;
     info(message: string): void;
     warn(message: string): void;
     error(message: string): void;
 }
 
 class NullLogger implements OperatorLogger {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    public debug(message: string): void {
+        // no-op
+    }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public info(message: string): void {
         // no-op
@@ -35,7 +40,7 @@ class NullLogger implements OperatorLogger {
 export enum ResourceEventType {
     Added = 'ADDED',
     Modified = 'MODIFIED',
-    Deleted = 'DELETED'
+    Deleted = 'DELETED',
 }
 
 /**
@@ -76,10 +81,7 @@ class ResourceMetaImpl implements ResourceMeta {
     public kind: string;
 
     private constructor(id: string, object: KubernetesObject) {
-        if (!object.metadata?.name
-            || !object.metadata?.resourceVersion
-            || !object.apiVersion
-            || !object.kind) {
+        if (!object.metadata?.name || !object.metadata?.resourceVersion || !object.apiVersion || !object.kind) {
             throw Error(`Malformed event object for '${id}'`);
         }
         this.id = id;
@@ -99,11 +101,13 @@ export default abstract class Operator {
     protected k8sApi: k8s.CoreV1Api;
     protected k8sExtensionsApi: k8s.ApiextensionsV1beta1Api;
 
-    private _logger: OperatorLogger;
-    private _resourcePathBuilders: { [id: string]: (meta: ResourceMeta) => string } = {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private _watchRequests: { [id: string]: any } = {};
-    private _eventQueue: Async.AsyncQueue<{ event: ResourceEvent; onEvent: (event: ResourceEvent) => Promise<void> }>;
+    private logger: OperatorLogger;
+    private resourcePathBuilders: Record<string, (meta: ResourceMeta) => string> = {};
+    private watchRequests: Record<string, { abort(): void }> = {};
+    private eventQueue: Async.AsyncQueue<{
+        event: ResourceEvent;
+        onEvent: (event: ResourceEvent) => Promise<void>;
+    }>;
 
     /**
      * Constructs an operator.
@@ -113,11 +117,13 @@ export default abstract class Operator {
         this.kubeConfig.loadFromDefault();
         this.k8sApi = this.kubeConfig.makeApiClient(k8s.CoreV1Api);
         this.k8sExtensionsApi = this.kubeConfig.makeApiClient(k8s.ApiextensionsV1beta1Api);
-        this._logger = logger || new NullLogger();
+        this.logger = logger || new NullLogger();
 
         // Use an async queue to make sure we treat each incoming event sequentially using async/await
-        this._eventQueue = Async.queue<{ onEvent: (event: ResourceEvent) => Promise<void>; event: ResourceEvent }>(
-            async (args) => await args.onEvent(args.event));
+        this.eventQueue = Async.queue<{
+            onEvent: (event: ResourceEvent) => Promise<void>;
+            event: ResourceEvent;
+        }>(async (args) => await args.onEvent(args.event));
     }
 
     /**
@@ -128,7 +134,7 @@ export default abstract class Operator {
     }
 
     public stop(): void {
-        for (const req of Object.values(this._watchRequests)) {
+        for (const req of Object.values(this.watchRequests)) {
             req.abort();
         }
     }
@@ -142,18 +148,28 @@ export default abstract class Operator {
      * Register a custom resource defintion.
      * @param crdFile The path to the custom resource definition's YAML file
      */
-    protected async registerCustomResourceDefinition(crdFile: string): Promise<{ group: string; versions: V1beta1CustomResourceDefinitionVersion[]; plural: string }> {
+    protected async registerCustomResourceDefinition(
+        crdFile: string
+    ): Promise<{
+        group: string;
+        versions: V1beta1CustomResourceDefinitionVersion[];
+        plural: string;
+    }> {
         const crd = YAML.load(FS.readFileSync(crdFile, 'utf8'));
         try {
             await this.k8sExtensionsApi.createCustomResourceDefinition(crd as k8s.V1beta1CustomResourceDefinition);
-            this._logger.info(`registered custom resource definition '${crd.metadata.name}'`);
+            this.logger.info(`registered custom resource definition '${crd.metadata.name}'`);
         } catch (err) {
             // API returns a 409 Conflict if CRD already exists.
             if (err.response.statusCode !== 409) {
                 throw err;
             }
         }
-        return { group: crd.spec.group, versions: crd.spec.versions, plural: crd.spec.names.plural };
+        return {
+            group: crd.spec.group,
+            versions: crd.spec.versions,
+            plural: crd.spec.names.plural,
+        };
     }
 
     /**
@@ -180,11 +196,18 @@ export default abstract class Operator {
      * @param onEvent The async callback for added, modified or deleted events on the resource
      * @param namespace The namespace of the resource (optional)
      */
-    protected async watchResource(group: string, version: string, plural: string, onEvent: (event: ResourceEvent) => Promise<void>, namespace?: string): Promise<void> {
+    protected async watchResource(
+        group: string,
+        version: string,
+        plural: string,
+        onEvent: (event: ResourceEvent) => Promise<void>,
+        namespace?: string
+    ): Promise<void> {
         const apiVersion = group ? `${group}/${version}` : `${version}`;
         const id = `${plural}.${apiVersion}`;
 
-        this._resourcePathBuilders[id] = (meta: ResourceMeta): string => this.getCustomResourceApiUri(group, version, plural, meta.namespace);
+        this.resourcePathBuilders[id] = (meta: ResourceMeta): string =>
+            this.getCustomResourceApiUri(group, version, plural, meta.namespace);
 
         //
         // Create "infinite" watch so we automatically recover in case the stream stops or gives an error.
@@ -197,24 +220,39 @@ export default abstract class Operator {
 
         const watch = new k8s.Watch(this.kubeConfig);
 
-        const startWatch = async (): Promise<void> => this._watchRequests[id] = await watch.watch(uri, {},
-            (type, obj) => this._eventQueue.push({
-                event: {
-                    meta: ResourceMetaImpl.createWithPlural(plural, obj),
-                    object: obj,
-                    type: type as ResourceEventType
-                },
-                onEvent
-            }),
-            err => {
-                if (err) {
-                    this._logger.warn(`restarting watch on resource ${id} (reason: ${JSON.stringify(err)})`);
-                }
-                setTimeout(startWatch, 100);
-            });
-        await startWatch();
+        const startWatch = (): Promise<void> =>
+            watch
+                .watch(
+                    uri,
+                    {},
+                    (type, obj) =>
+                        this.eventQueue.push({
+                            event: {
+                                meta: ResourceMetaImpl.createWithPlural(plural, obj),
+                                object: obj,
+                                type: type as ResourceEventType,
+                            },
+                            onEvent,
+                        }),
+                    (err) => {
+                        if (err) {
+                            this.logger.warn(`restarting watch on resource ${id} (error: ${JSON.stringify(err)})`);
+                        } else {
+                            this.logger.debug(`restarting watch on resource ${id}`);
+                        }
+                        setTimeout(startWatch, 1000);
+                    }
+                )
+                .then(
+                    (value) => (this.watchRequests[id] = value),
+                    (reason) => {
+                        this.logger.warn(`restarting watch on resource ${id} (reason: ${JSON.stringify(reason)})`);
+                        setTimeout(startWatch, 1000);
+                    }
+                );
+        startWatch();
 
-        this._logger.info(`watching resource ${id}`);
+        this.logger.info(`watching resource ${id}`);
     }
 
     /**
@@ -225,15 +263,14 @@ export default abstract class Operator {
     protected async setResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
         const requestOptions: request.Options = this.buildResourceStatusRequest(meta, status, false);
         try {
-            const responseBody = await request.put(requestOptions, err => {
+            const responseBody = await request.put(requestOptions, (err) => {
                 if (err) {
-                    this._logger.error(err.message || JSON.stringify(err));
+                    this.logger.error(err.message || JSON.stringify(err));
                 }
             });
             return ResourceMetaImpl.createWithId(meta.id, JSON.parse(responseBody as string));
-        }
-        catch (err) {
-            this._logger.error(err.message || JSON.stringify(err));
+        } catch (err) {
+            this.logger.error(err.message || JSON.stringify(err));
             return null;
         }
     }
@@ -246,15 +283,14 @@ export default abstract class Operator {
     protected async patchResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
         const requestOptions = this.buildResourceStatusRequest(meta, status, true);
         try {
-            const responseBody = await request.patch(requestOptions, err => {
+            const responseBody = await request.patch(requestOptions, (err) => {
                 if (err) {
-                    this._logger.error(err.message || JSON.stringify(err));
+                    this.logger.error(err.message || JSON.stringify(err));
                 }
             });
             return ResourceMetaImpl.createWithId(meta.id, JSON.parse(responseBody as string));
-        }
-        catch (err) {
-            this._logger.error(err.message || JSON.stringify(err));
+        } catch (err) {
+            this.logger.error(err.message || JSON.stringify(err));
             return null;
         }
     }
@@ -269,8 +305,11 @@ export default abstract class Operator {
      * @param deleteAction An async action that will be called before your resource is deleted.
      * @returns True if no further action is needed, false if you still need to process the added or modified event yourself.
      */
-    protected async handleResourceFinalizer(event: ResourceEvent, finalizer: string,
-        deleteAction: (event: ResourceEvent) => Promise<void>): Promise<boolean> {
+    protected async handleResourceFinalizer(
+        event: ResourceEvent,
+        finalizer: string,
+        deleteAction: (event: ResourceEvent) => Promise<void>
+    ): Promise<boolean> {
         const metadata = event.object.metadata;
         if (!metadata || (event.type !== ResourceEventType.Added && event.type !== ResourceEventType.Modified)) {
             return false;
@@ -304,19 +343,19 @@ export default abstract class Operator {
         const requestOptions: request.Options = {
             body: JSON.stringify({
                 metadata: {
-                    finalizers
-                }
+                    finalizers,
+                },
             }),
-            uri: `${this._resourcePathBuilders[meta.id](meta)}/${meta.name}`
+            uri: `${this.resourcePathBuilders[meta.id](meta)}/${meta.name}`,
         };
         requestOptions.headers = {
-            'Content-Type': 'application/merge-patch+json'
+            'Content-Type': 'application/merge-patch+json',
         };
         this.kubeConfig.applyToRequest(requestOptions);
 
-        await request.patch(requestOptions, async error => {
+        await request.patch(requestOptions, async (error) => {
             if (error) {
-                this._logger.error(error.message || JSON.stringify(error));
+                this.logger.error(error.message || JSON.stringify(error));
                 return;
             }
         });
@@ -329,20 +368,20 @@ export default abstract class Operator {
             kind: meta.kind,
             metadata: {
                 name: meta.name,
-                resourceVersion: meta.resourceVersion
+                resourceVersion: meta.resourceVersion,
             },
-            status
+            status,
         };
         if (meta.namespace) {
             body.metadata.namespace = meta.namespace;
         }
         const requestOptions: request.Options = {
             body: JSON.stringify(body),
-            uri: this._resourcePathBuilders[meta.id](meta) + `/${meta.name}/status`
+            uri: this.resourcePathBuilders[meta.id](meta) + `/${meta.name}/status`,
         };
         if (isPatch) {
             requestOptions.headers = {
-                'Content-Type': 'application/merge-patch+json'
+                'Content-Type': 'application/merge-patch+json',
             };
         }
         this.kubeConfig.applyToRequest(requestOptions);

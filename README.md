@@ -59,6 +59,7 @@ You can pass on optional logger to the constructor. It must implement this inter
 ```javascript
 interface OperatorLogger {
     info(message: string): void;
+    debug(message: string): void;
     warn(message: string): void;
     error(message: string): void;
 }

@@ -1,6 +1,11 @@
 # CHANGELOG
 
-### 1.0.3 (2020-05-04)
+### 1.0.4 (2020-05-18)
+
+- Some small tweaking to make error-handling on watches as robust as possible
+- Added two debug logs for restarting a watch
+
+### 1.0.3 (2020-05-18)
 
 - `watchResource()` now has an optional `namespace` parameter
 - updated dependencies
