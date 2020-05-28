@@ -361,7 +361,7 @@ export default abstract class Operator {
         });
     }
 
-    private async buildResourceStatusRequest(meta: ResourceMeta, status: unknown, isPatch: boolean): request.Options {
+    private async buildResourceStatusRequest(meta: ResourceMeta, status: unknown, isPatch: boolean): Promise<request.Options> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const body: any = {
             apiVersion: meta.apiVersion,
