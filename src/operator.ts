@@ -261,7 +261,7 @@ export default abstract class Operator {
      * @param status The status body to set
      */
     protected async setResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
-        const requestOptions: request.Options = this.buildResourceStatusRequest(meta, status, false);
+        const requestOptions: request.Options = await this.buildResourceStatusRequest(meta, status, false);
         try {
             const responseBody = await request.put(requestOptions, (err) => {
                 if (err) {
@@ -281,7 +281,7 @@ export default abstract class Operator {
      * @param status The status body to set in JSON Merge Patch format (https://tools.ietf.org/html/rfc7386)
      */
     protected async patchResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
-        const requestOptions = this.buildResourceStatusRequest(meta, status, true);
+        const requestOptions = await this.buildResourceStatusRequest(meta, status, true);
         try {
             const responseBody = await request.patch(requestOptions, (err) => {
                 if (err) {
@@ -351,7 +351,7 @@ export default abstract class Operator {
         requestOptions.headers = {
             'Content-Type': 'application/merge-patch+json',
         };
-        this.kubeConfig.applyToRequest(requestOptions);
+        await this.kubeConfig.applyToRequest(requestOptions);
 
         await request.patch(requestOptions, async (error) => {
             if (error) {
@@ -361,7 +361,7 @@ export default abstract class Operator {
         });
     }
 
-    private buildResourceStatusRequest(meta: ResourceMeta, status: unknown, isPatch: boolean): request.Options {
+    private async buildResourceStatusRequest(meta: ResourceMeta, status: unknown, isPatch: boolean): request.Options {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const body: any = {
             apiVersion: meta.apiVersion,
@@ -384,7 +384,7 @@ export default abstract class Operator {
                 'Content-Type': 'application/merge-patch+json',
             };
         }
-        this.kubeConfig.applyToRequest(requestOptions);
+        await this.kubeConfig.applyToRequest(requestOptions);
         return requestOptions;
     }
 }
