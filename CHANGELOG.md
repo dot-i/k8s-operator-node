@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.0.5 (2020-06-19)
+
+- update dependencies
+
 ### 1.0.4 (2020-05-18)
 
 - Some small tweaking to make error-handling on watches as robust as possible

@@ -237,10 +237,11 @@ export default abstract class Operator {
                     (err) => {
                         if (err) {
                             this.logger.warn(`restarting watch on resource ${id} (error: ${JSON.stringify(err)})`);
+                            setTimeout(startWatch, 1000);
                         } else {
                             this.logger.debug(`restarting watch on resource ${id}`);
+                            setTimeout(startWatch, 200);
                         }
-                        setTimeout(startWatch, 1000);
                     }
                 )
                 .then(
