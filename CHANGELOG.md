@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.0.6 (2020-06-19)
+
+- fixed missing await on kubeConfig.applyToRequest()
+
 ### 1.0.5 (2020-06-19)
 
 - update dependencies
