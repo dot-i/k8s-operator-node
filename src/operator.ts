@@ -64,7 +64,7 @@ export interface ResourceMeta {
     kind: string;
 }
 
-class ResourceMetaImpl implements ResourceMeta {
+export class ResourceMetaImpl implements ResourceMeta {
     public static createWithId(id: string, object: KubernetesObject): ResourceMeta {
         return new ResourceMetaImpl(id, object);
     }
