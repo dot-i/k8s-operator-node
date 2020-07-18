@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.0.8 (2020-07-18)
+
+- updated to latest `lodash` to fix vulnerability
+
 ### 1.0.7 (2020-07-13)
 
 - added an `export` to `ResourceMetaImpl`
