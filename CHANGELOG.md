@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.0.9 (2020-08-17)
+
+- updated dependencies
+
 ### 1.0.8 (2020-07-18)
 
 - updated to latest `lodash` to fix vulnerability
