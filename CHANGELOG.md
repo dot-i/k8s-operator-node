@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.0.10 (2020-08-27)
+
+- updated devDependencies
+
 ### 1.0.9 (2020-08-17)
 
 - updated dependencies
