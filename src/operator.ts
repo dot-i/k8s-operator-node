@@ -236,8 +236,8 @@ export default abstract class Operator {
                         }),
                     (err) => {
                         if (err) {
-                            this.logger.warn(`restarting watch on resource ${id} (error: ${JSON.stringify(err)})`);
-                            setTimeout(startWatch, 1000);
+                            this.logger.error(`watch on resource ${id} failed: ${JSON.stringify(err)}`);
+                            process.exit(1);
                         } else {
                             this.logger.debug(`restarting watch on resource ${id}`);
                             setTimeout(startWatch, 200);
@@ -247,8 +247,8 @@ export default abstract class Operator {
                 .then(
                     (value) => (this.watchRequests[id] = value),
                     (reason) => {
-                        this.logger.warn(`restarting watch on resource ${id} (reason: ${JSON.stringify(reason)})`);
-                        setTimeout(startWatch, 1000);
+                        this.logger.error(`watch on resource ${id} failed: ${JSON.stringify(reason)}`);
+                        process.exit(1);
                     }
                 );
         startWatch();

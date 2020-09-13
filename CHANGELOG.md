@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 1.0.11 (2020-08-27)
+
+- reliability enhancement: end process on watch error now (to force a pod restart)
+- upgraded to TypeScript 4.0
+
 ### 1.0.10 (2020-08-27)
 
 - updated devDependencies
