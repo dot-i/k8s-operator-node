@@ -1,6 +1,10 @@
 # CHANGELOG
 
-### 1.0.11 (2020-08-27)
+### 1.0.12 (2020-09-19)
+
+- updated @kubernetes/client-node to fix security issue found in node-forge
+
+### 1.0.11 (2020-09-13)
 
 - reliability enhancement: end process on watch error now (to force a pod restart)
 - upgraded to TypeScript 4.0
