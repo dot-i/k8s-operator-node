@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.0.13 (2020-09-22)
+
+- added stream-buffers to dependencies
+
 ### 1.0.12 (2020-09-19)
 
 - updated @kubernetes/client-node to fix security issue found in node-forge

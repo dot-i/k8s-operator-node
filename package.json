@@ -1,6 +1,6 @@
 {
   "name": "@dot-i/k8s-operator",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Build Kubernetes operators in NodeJS (and TypeScript)",
   "author": {
     "name": "Nico Francois",
@@ -26,7 +26,8 @@
     "async": "^3.2.0",
     "js-yaml": "^3.14.0",
     "request": "^2.88.2",
-    "request-promise-native": "^1.0.9"
+    "request-promise-native": "^1.0.9",
+    "stream-buffers": "^3.0.2"
   },
   "devDependencies": {
     "@types/async": "^3.2.3",
