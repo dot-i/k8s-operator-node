@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.0.14 (2020-10-22)
+
+- replaced direct dependency on 'request' with 'axios'
+
 ### 1.0.13 (2020-09-22)
 
 - added stream-buffers to dependencies

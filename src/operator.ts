@@ -2,7 +2,8 @@ import * as Async from 'async';
 import * as FS from 'fs';
 import * as YAML from 'js-yaml';
 import * as k8s from '@kubernetes/client-node';
-import * as request from 'request-promise-native';
+import * as https from 'https';
+import Axios, { AxiosRequestConfig, Method as HttpMethod } from 'axios';
 import { KubernetesObject, V1beta1CustomResourceDefinitionVersion } from '@kubernetes/client-node';
 
 /**
@@ -225,12 +226,12 @@ export default abstract class Operator {
                 .watch(
                     uri,
                     {},
-                    (type, obj) =>
+                    (phase, obj) =>
                         this.eventQueue.push({
                             event: {
                                 meta: ResourceMetaImpl.createWithPlural(plural, obj),
                                 object: obj,
-                                type: type as ResourceEventType,
+                                type: phase as ResourceEventType,
                             },
                             onEvent,
                         }),
@@ -244,14 +245,13 @@ export default abstract class Operator {
                         }
                     }
                 )
-                .then(
-                    (value) => (this.watchRequests[id] = value),
-                    (reason) => {
-                        this.logger.error(`watch on resource ${id} failed: ${JSON.stringify(reason)}`);
-                        process.exit(1);
-                    }
-                );
-        startWatch();
+                .catch((reason) => {
+                    this.logger.error(`watch on resource ${id} failed: ${JSON.stringify(reason)}`);
+                    process.exit(1);
+                })
+                .then(req => this.watchRequests[id] = req);
+
+        await startWatch();
 
         this.logger.info(`watching resource ${id}`);
     }
@@ -262,18 +262,7 @@ export default abstract class Operator {
      * @param status The status body to set
      */
     protected async setResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
-        const requestOptions: request.Options = await this.buildResourceStatusRequest(meta, status, false);
-        try {
-            const responseBody = await request.put(requestOptions, (err) => {
-                if (err) {
-                    this.logger.error(err.message || JSON.stringify(err));
-                }
-            });
-            return ResourceMetaImpl.createWithId(meta.id, JSON.parse(responseBody as string));
-        } catch (err) {
-            this.logger.error(err.message || JSON.stringify(err));
-            return null;
-        }
+        return await this.resourceStatusRequest('PUT', meta, status);
     }
 
     /**
@@ -282,18 +271,7 @@ export default abstract class Operator {
      * @param status The status body to set in JSON Merge Patch format (https://tools.ietf.org/html/rfc7386)
      */
     protected async patchResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
-        const requestOptions = await this.buildResourceStatusRequest(meta, status, true);
-        try {
-            const responseBody = await request.patch(requestOptions, (err) => {
-                if (err) {
-                    this.logger.error(err.message || JSON.stringify(err));
-                }
-            });
-            return ResourceMetaImpl.createWithId(meta.id, JSON.parse(responseBody as string));
-        } catch (err) {
-            this.logger.error(err.message || JSON.stringify(err));
-            return null;
-        }
+        return await this.resourceStatusRequest('PATCH', meta, status);
     }
 
     /**
@@ -341,20 +319,22 @@ export default abstract class Operator {
      * @param finalizers The array of finalizers for this resource
      */
     protected async setResourceFinalizers(meta: ResourceMeta, finalizers: string[]): Promise<void> {
-        const requestOptions: request.Options = {
-            body: JSON.stringify({
+        const request: AxiosRequestConfig = {
+            method: 'PATCH',
+            url: `${this.resourcePathBuilders[meta.id](meta)}/${meta.name}`,
+            data: {
                 metadata: {
                     finalizers,
                 },
-            }),
-            uri: `${this.resourcePathBuilders[meta.id](meta)}/${meta.name}`,
+            },
+            headers: {
+                'Content-Type': 'application/merge-patch+json',
+            }
         };
-        requestOptions.headers = {
-            'Content-Type': 'application/merge-patch+json',
-        };
-        await this.kubeConfig.applyToRequest(requestOptions);
 
-        await request.patch(requestOptions, async (error) => {
+        await this.applyAxiosKubeConfigAuth(request);
+
+        await Axios.request(request).catch((error) => {
             if (error) {
                 this.logger.error(error.message || JSON.stringify(error));
                 return;
@@ -362,7 +342,34 @@ export default abstract class Operator {
         });
     }
 
-    private async buildResourceStatusRequest(meta: ResourceMeta, status: unknown, isPatch: boolean): Promise<request.Options> {
+    /**
+     * Apply authentication to an axios request config.
+     * @param request the axios request config
+     */
+    protected async applyAxiosKubeConfigAuth(request: AxiosRequestConfig): Promise<void> {
+        const opts: https.RequestOptions = {};
+        await this.kubeConfig.applytoHTTPSOptions(opts);
+        if (opts.headers?.Authorization) {
+            request.headers = request.headers ?? {};
+            request.headers.Authorization = opts.headers.Authorization;
+        }
+        if (opts.auth) {
+            const userPassword = opts.auth.split(':');
+            request.auth = {
+                username: userPassword[0],
+                password: userPassword[1]
+            };
+        }
+        if (opts.ca || opts.cert || opts.key) {
+            request.httpsAgent = new https.Agent({
+                ca: opts.ca,
+                cert: opts.cert,
+                key: opts.key
+            });
+        }
+    }
+
+    private async resourceStatusRequest(method: HttpMethod, meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const body: any = {
             apiVersion: meta.apiVersion,
@@ -376,16 +383,23 @@ export default abstract class Operator {
         if (meta.namespace) {
             body.metadata.namespace = meta.namespace;
         }
-        const requestOptions: request.Options = {
-            body: JSON.stringify(body),
-            uri: this.resourcePathBuilders[meta.id](meta) + `/${meta.name}/status`,
+        const request: AxiosRequestConfig = {
+            method,
+            url: this.resourcePathBuilders[meta.id](meta) + `/${meta.name}/status`,
+            data: body,
         };
-        if (isPatch) {
-            requestOptions.headers = {
+        if (method === 'patch' || method === 'PATCH') {
+            request.headers = {
                 'Content-Type': 'application/merge-patch+json',
             };
         }
-        await this.kubeConfig.applyToRequest(requestOptions);
-        return requestOptions;
+        await this.applyAxiosKubeConfigAuth(request);
+        try {
+            const response = await Axios.request<KubernetesObject>(request);
+            return response ? ResourceMetaImpl.createWithId(meta.id, response.data) : null;
+        } catch (err) {
+            this.logger.error(err.message || JSON.stringify(err));
+            return null;
+        }
     }
 }
