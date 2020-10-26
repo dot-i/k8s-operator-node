@@ -4,6 +4,7 @@ import * as YAML from 'js-yaml';
 import * as k8s from '@kubernetes/client-node';
 import * as https from 'https';
 import Axios, { AxiosRequestConfig, Method as HttpMethod } from 'axios';
+import {serializeError} from 'serialize-error';
 import { KubernetesObject, V1beta1CustomResourceDefinitionVersion } from '@kubernetes/client-node';
 
 /**
@@ -237,7 +238,9 @@ export default abstract class Operator {
                         }),
                     (err) => {
                         if (err) {
-                            this.logger.error(`watch on resource ${id} failed: ${JSON.stringify(err)}`);
+                            this.logger.error(
+                                `watch on resource ${id} failed: ${serializeError(err)}`
+                            );
                             process.exit(1);
                         } else {
                             this.logger.debug(`restarting watch on resource ${id}`);
@@ -246,10 +249,10 @@ export default abstract class Operator {
                     }
                 )
                 .catch((reason) => {
-                    this.logger.error(`watch on resource ${id} failed: ${JSON.stringify(reason)}`);
+                    this.logger.error(`watch on resource ${id} failed: ${serializeError(reason)}`);
                     process.exit(1);
                 })
-                .then(req => this.watchRequests[id] = req);
+                .then((req) => (this.watchRequests[id] = req));
 
         await startWatch();
 
@@ -329,14 +332,14 @@ export default abstract class Operator {
             },
             headers: {
                 'Content-Type': 'application/merge-patch+json',
-            }
+            },
         };
 
         await this.applyAxiosKubeConfigAuth(request);
 
         await Axios.request(request).catch((error) => {
             if (error) {
-                this.logger.error(error.message || JSON.stringify(error));
+                this.logger.error(serializeError(error));
                 return;
             }
         });
@@ -357,19 +360,23 @@ export default abstract class Operator {
             const userPassword = opts.auth.split(':');
             request.auth = {
                 username: userPassword[0],
-                password: userPassword[1]
+                password: userPassword[1],
             };
         }
         if (opts.ca || opts.cert || opts.key) {
             request.httpsAgent = new https.Agent({
                 ca: opts.ca,
                 cert: opts.cert,
-                key: opts.key
+                key: opts.key,
             });
         }
     }
 
-    private async resourceStatusRequest(method: HttpMethod, meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
+    private async resourceStatusRequest(
+        method: HttpMethod,
+        meta: ResourceMeta,
+        status: unknown
+    ): Promise<ResourceMeta | null> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const body: any = {
             apiVersion: meta.apiVersion,
@@ -398,7 +405,7 @@ export default abstract class Operator {
             const response = await Axios.request<KubernetesObject>(request);
             return response ? ResourceMetaImpl.createWithId(meta.id, response.data) : null;
         } catch (err) {
-            this.logger.error(err.message || JSON.stringify(err));
+            this.logger.error(serializeError(err));
             return null;
         }
     }

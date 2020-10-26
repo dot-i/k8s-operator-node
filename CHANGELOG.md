@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.0.15 (2020-10-26)
+
+- use 'serialize-error' to log errors
+
 ### 1.0.14 (2020-10-22)
 
 - replaced direct dependency on 'request' with 'axios'
