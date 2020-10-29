@@ -239,7 +239,7 @@ export default abstract class Operator {
                     (err) => {
                         if (err) {
                             this.logger.error(
-                                `watch on resource ${id} failed: ${serializeError(err)}`
+                                `watch on resource ${id} failed: ${this.errorToJson(err)}`
                             );
                             process.exit(1);
                         } else {
@@ -249,7 +249,7 @@ export default abstract class Operator {
                     }
                 )
                 .catch((reason) => {
-                    this.logger.error(`watch on resource ${id} failed: ${serializeError(reason)}`);
+                    this.logger.error(`watch on resource ${id} failed: ${this.errorToJson(reason)}`);
                     process.exit(1);
                 })
                 .then((req) => (this.watchRequests[id] = req));
@@ -339,7 +339,7 @@ export default abstract class Operator {
 
         await Axios.request(request).catch((error) => {
             if (error) {
-                this.logger.error(serializeError(error));
+                this.logger.error(this.errorToJson(error));
                 return;
             }
         });
@@ -405,8 +405,16 @@ export default abstract class Operator {
             const response = await Axios.request<KubernetesObject>(request);
             return response ? ResourceMetaImpl.createWithId(meta.id, response.data) : null;
         } catch (err) {
-            this.logger.error(serializeError(err));
+            this.logger.error(this.errorToJson(err));
             return null;
         }
+    }
+
+    private errorToJson(err: unknown): string {
+        err = serializeError(err);
+        if (typeof err === 'string') {
+            return err;
+        }
+        return JSON.stringify(err);
     }
 }

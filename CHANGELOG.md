@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 1.0.16 (2020-10-26)
+
+- fixed usage of 'serialize-error'
+- updated dependencies
+
 ### 1.0.15 (2020-10-26)
 
 - use 'serialize-error' to log errors
