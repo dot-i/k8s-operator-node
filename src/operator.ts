@@ -6,6 +6,7 @@ import * as https from 'https';
 import Axios, { AxiosRequestConfig, Method as HttpMethod } from 'axios';
 import {serializeError} from 'serialize-error';
 import { KubernetesObject, V1beta1CustomResourceDefinitionVersion } from '@kubernetes/client-node';
+import { ForeverWatch } from './forever-watch';
 
 /**
  * Logger interface.
@@ -106,7 +107,7 @@ export default abstract class Operator {
     private logger: OperatorLogger;
     private resourcePathBuilders: Record<string, (meta: ResourceMeta) => string> = {};
     private watchRequests: Record<string, { abort(): void }> = {};
-    private eventQueue: Async.AsyncQueue<{
+    private eventQueue: Async.QueueObject<{
         event: ResourceEvent;
         onEvent: (event: ResourceEvent) => Promise<void>;
     }>;
@@ -144,7 +145,7 @@ export default abstract class Operator {
     /**
      * Initialize the operator, add your resource watchers here.
      */
-    protected abstract async init(): Promise<void>;
+    protected abstract init(): Promise<void>;
 
     /**
      * Register a custom resource defintion.
@@ -220,7 +221,7 @@ export default abstract class Operator {
         }
         uri += plural;
 
-        const watch = new k8s.Watch(this.kubeConfig);
+        const watch = new ForeverWatch(this.kubeConfig);
 
         const startWatch = (): Promise<void> =>
             watch

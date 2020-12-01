@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 1.0.17 (2020-12-01)
+
+- using a local `ForeverWatch` until newer `@kubernetes/client-node` is released
+- updated dependencies
+
 ### 1.0.16 (2020-10-26)
 
 - fixed usage of 'serialize-error'
