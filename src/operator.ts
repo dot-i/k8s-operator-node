@@ -5,8 +5,7 @@ import * as k8s from '@kubernetes/client-node';
 import * as https from 'https';
 import Axios, { AxiosRequestConfig, Method as HttpMethod } from 'axios';
 import {serializeError} from 'serialize-error';
-import { KubernetesObject, V1beta1CustomResourceDefinitionVersion } from '@kubernetes/client-node';
-import { ForeverWatch } from './forever-watch';
+import { KubernetesObject, V1beta1CustomResourceDefinitionVersion, Watch } from '@kubernetes/client-node';
 
 /**
  * Logger interface.
@@ -221,7 +220,7 @@ export default abstract class Operator {
         }
         uri += plural;
 
-        const watch = new ForeverWatch(this.kubeConfig);
+        const watch = new Watch(this.kubeConfig);
 
         const startWatch = (): Promise<void> =>
             watch
@@ -237,16 +236,15 @@ export default abstract class Operator {
                             },
                             onEvent,
                         }),
+                    () => {
+                        this.logger.debug(`restarting watch on resource ${id}`);
+                        setTimeout(startWatch, 200);
+                    },
                     (err) => {
-                        if (err) {
-                            this.logger.error(
-                                `watch on resource ${id} failed: ${this.errorToJson(err)}`
-                            );
-                            process.exit(1);
-                        } else {
-                            this.logger.debug(`restarting watch on resource ${id}`);
-                            setTimeout(startWatch, 200);
-                        }
+                        this.logger.error(
+                            `watch on resource ${id} failed: ${this.errorToJson(err)}`
+                        );
+                        process.exit(1);
                     }
                 )
                 .catch((reason) => {

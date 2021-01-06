@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 1.0.19 (2021-01-06)
+
+- removed local `ForeverWatch` (obsolete due to latest `@kubernetes/client-node`)
+- updated dependencies
+
 ### 1.0.17 (2020-12-01)
 
 - using a local `ForeverWatch` until newer `@kubernetes/client-node` is released
