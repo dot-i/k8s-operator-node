@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 1.1.0 (2021-01-20)
+
+- support both apiextensions.k8s.io/v1 and apiextensions.k8s.io/v1beta1
+- updated dependencies
+
 ### 1.0.19 (2021-01-06)
 
 - removed local `ForeverWatch` (obsolete due to latest `@kubernetes/client-node`)

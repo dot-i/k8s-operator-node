@@ -4,8 +4,8 @@ import * as YAML from 'js-yaml';
 import * as k8s from '@kubernetes/client-node';
 import * as https from 'https';
 import Axios, { AxiosRequestConfig, Method as HttpMethod } from 'axios';
-import {serializeError} from 'serialize-error';
-import { KubernetesObject, V1beta1CustomResourceDefinitionVersion, Watch } from '@kubernetes/client-node';
+import { serializeError } from 'serialize-error';
+import { KubernetesObject, V1CustomResourceDefinitionVersion, Watch } from '@kubernetes/client-node';
 
 /**
  * Logger interface.
@@ -101,7 +101,6 @@ export class ResourceMetaImpl implements ResourceMeta {
 export default abstract class Operator {
     protected kubeConfig: k8s.KubeConfig;
     protected k8sApi: k8s.CoreV1Api;
-    protected k8sExtensionsApi: k8s.ApiextensionsV1beta1Api;
 
     private logger: OperatorLogger;
     private resourcePathBuilders: Record<string, (meta: ResourceMeta) => string> = {};
@@ -118,7 +117,6 @@ export default abstract class Operator {
         this.kubeConfig = new k8s.KubeConfig();
         this.kubeConfig.loadFromDefault();
         this.k8sApi = this.kubeConfig.makeApiClient(k8s.CoreV1Api);
-        this.k8sExtensionsApi = this.kubeConfig.makeApiClient(k8s.ApiextensionsV1beta1Api);
         this.logger = logger || new NullLogger();
 
         // Use an async queue to make sure we treat each incoming event sequentially using async/await
@@ -154,12 +152,20 @@ export default abstract class Operator {
         crdFile: string
     ): Promise<{
         group: string;
-        versions: V1beta1CustomResourceDefinitionVersion[];
+        versions: V1CustomResourceDefinitionVersion[];
         plural: string;
     }> {
         const crd = YAML.load(FS.readFileSync(crdFile, 'utf8'));
         try {
-            await this.k8sExtensionsApi.createCustomResourceDefinition(crd as k8s.V1beta1CustomResourceDefinition);
+            const apiVersion = crd['apiVersion'] as string;
+            if (!apiVersion.startsWith('apiextensions.k8s.io/')) {
+                throw new Error("Invalid CRD yaml (expected 'apiextensions.k8s.io')");
+            }
+            if (apiVersion === 'apiextensions.k8s.io/v1beta1') {
+                await this.kubeConfig.makeApiClient(k8s.ApiextensionsV1beta1Api).createCustomResourceDefinition(crd);
+            } else {
+                await this.kubeConfig.makeApiClient(k8s.ApiextensionsV1Api).createCustomResourceDefinition(crd);
+            }
             this.logger.info(`registered custom resource definition '${crd.metadata.name}'`);
         } catch (err) {
             // API returns a 409 Conflict if CRD already exists.
@@ -241,9 +247,7 @@ export default abstract class Operator {
                         setTimeout(startWatch, 200);
                     },
                     (err) => {
-                        this.logger.error(
-                            `watch on resource ${id} failed: ${this.errorToJson(err)}`
-                        );
+                        this.logger.error(`watch on resource ${id} failed: ${this.errorToJson(err)}`);
                         process.exit(1);
                     }
                 )
