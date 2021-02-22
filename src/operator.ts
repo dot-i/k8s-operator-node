@@ -242,13 +242,13 @@ export default abstract class Operator {
                             },
                             onEvent,
                         }),
-                    () => {
+                    (err) => {
+                        if (err) {
+                            this.logger.error(`watch on resource ${id} failed: ${this.errorToJson(err)}`);
+                            process.exit(1);
+                        }
                         this.logger.debug(`restarting watch on resource ${id}`);
                         setTimeout(startWatch, 200);
-                    },
-                    (err) => {
-                        this.logger.error(`watch on resource ${id} failed: ${this.errorToJson(err)}`);
-                        process.exit(1);
                     }
                 )
                 .catch((reason) => {

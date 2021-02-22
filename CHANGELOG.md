@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.1.1 (2021-02-22)
+
+- update @kubernetes/client-node to 0.14.0
+
 ### 1.1.0 (2021-01-20)
 
 - support both apiextensions.k8s.io/v1 and apiextensions.k8s.io/v1beta1
