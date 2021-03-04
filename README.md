@@ -192,6 +192,26 @@ export default class MyOperator extends Operator {
 
 ### Operator that watches a custom resource
 
+You will typicall create an interface to define your custom resource:
+
+```javascript
+export interface MyCustomResource extends KubernetesObject {
+    spec: MyCustomResourceSpec;
+    status: MyCustomResourceStatus;
+}
+
+export interface MyCustomResourceSpec {
+    foo: string;
+    bar?: number;
+}
+
+export interface MyCustomResourceStatus {
+    observedGeneration?: number;
+}
+```
+
+Your operator can then watch your resource like this:
+
 ```javascript
 import Operator, { ResourceEventType, ResourceEvent } from '@dot-i/k8s-operator';
 
@@ -216,7 +236,7 @@ export default class MyOperator extends Operator {
     }
 
     private async resourceModified(e: ResourceEvent) {
-        const object = e.object;
+        const object = e.object as MyCustomResource;
         const metadata = object.metadata;
 
         if (!object.status || object.status.observedGeneration !== metadata.generation) {
