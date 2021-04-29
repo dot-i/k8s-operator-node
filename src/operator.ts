@@ -5,7 +5,13 @@ import * as k8s from '@kubernetes/client-node';
 import * as https from 'https';
 import Axios, { AxiosRequestConfig, Method as HttpMethod } from 'axios';
 import { serializeError } from 'serialize-error';
-import { KubernetesObject, V1CustomResourceDefinitionVersion, Watch } from '@kubernetes/client-node';
+import {
+    KubernetesObject,
+    V1beta1CustomResourceDefinition,
+    V1CustomResourceDefinition,
+    V1CustomResourceDefinitionVersion,
+    Watch,
+} from '@kubernetes/client-node';
 
 /**
  * Logger interface.
@@ -155,18 +161,20 @@ export default abstract class Operator {
         versions: V1CustomResourceDefinitionVersion[];
         plural: string;
     }> {
-        const crd = YAML.load(FS.readFileSync(crdFile, 'utf8'));
+        const crd = YAML.load(FS.readFileSync(crdFile, 'utf8')) as V1CustomResourceDefinition;
         try {
-            const apiVersion = crd['apiVersion'] as string;
-            if (!apiVersion.startsWith('apiextensions.k8s.io/')) {
+            const apiVersion = crd.apiVersion as string;
+            if (!apiVersion || !apiVersion.startsWith('apiextensions.k8s.io/')) {
                 throw new Error("Invalid CRD yaml (expected 'apiextensions.k8s.io')");
             }
             if (apiVersion === 'apiextensions.k8s.io/v1beta1') {
-                await this.kubeConfig.makeApiClient(k8s.ApiextensionsV1beta1Api).createCustomResourceDefinition(crd);
+                await this.kubeConfig
+                    .makeApiClient(k8s.ApiextensionsV1beta1Api)
+                    .createCustomResourceDefinition(crd as V1beta1CustomResourceDefinition);
             } else {
                 await this.kubeConfig.makeApiClient(k8s.ApiextensionsV1Api).createCustomResourceDefinition(crd);
             }
-            this.logger.info(`registered custom resource definition '${crd.metadata.name}'`);
+            this.logger.info(`registered custom resource definition '${crd.metadata?.name}'`);
         } catch (err) {
             // API returns a 409 Conflict if CRD already exists.
             if (err.response.statusCode !== 409) {
