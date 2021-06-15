@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.1.4 (2021-06-15)
+
+- update dependencies
+
 ### 1.1.3 (2021-04-29)
 
 - update @kubernetes/client-node to 0.14.3
