@@ -1,12 +1,12 @@
 import * as Async from 'async';
 import * as FS from 'fs';
-import * as YAML from 'js-yaml';
 import * as k8s from '@kubernetes/client-node';
 import * as https from 'https';
 import Axios, { AxiosRequestConfig, Method as HttpMethod } from 'axios';
 import { serializeError } from 'serialize-error';
 import {
     KubernetesObject,
+    loadYaml,
     V1beta1CustomResourceDefinition,
     V1CustomResourceDefinition,
     V1CustomResourceDefinitionVersion,
@@ -161,7 +161,7 @@ export default abstract class Operator {
         versions: V1CustomResourceDefinitionVersion[];
         plural: string;
     }> {
-        const crd = YAML.load(FS.readFileSync(crdFile, 'utf8')) as V1CustomResourceDefinition;
+        const crd = loadYaml(FS.readFileSync(crdFile, 'utf8')) as V1CustomResourceDefinition;
         try {
             const apiVersion = crd.apiVersion as string;
             if (!apiVersion || !apiVersion.startsWith('apiextensions.k8s.io/')) {

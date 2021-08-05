@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 1.1.5 (2021-08-05)
+
+- fix CVE-2021-32803
+- update @kubernetes/client-node to 0.15.0
+- eliminate js-yaml dependency
+
 ### 1.1.4 (2021-06-15)
 
 - update dependencies
