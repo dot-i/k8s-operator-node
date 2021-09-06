@@ -154,9 +154,7 @@ export default abstract class Operator {
      * Register a custom resource defintion.
      * @param crdFile The path to the custom resource definition's YAML file
      */
-    protected async registerCustomResourceDefinition(
-        crdFile: string
-    ): Promise<{
+    protected async registerCustomResourceDefinition(crdFile: string): Promise<{
         group: string;
         versions: V1CustomResourceDefinitionVersion[];
         plural: string;
@@ -177,7 +175,8 @@ export default abstract class Operator {
             this.logger.info(`registered custom resource definition '${crd.metadata?.name}'`);
         } catch (err) {
             // API returns a 409 Conflict if CRD already exists.
-            if (err.response.statusCode !== 409) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if ((err as any).response?.statusCode !== 409) {
                 throw err;
             }
         }

@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 1.1.6 (2021-09-06)
+
+- upgrade @kubernetes/client-node to 0.15.1
+- upgrade async to 3.2.1
+- upgrade axios to 0.21.3
+
 ### 1.1.5 (2021-08-05)
 
 - fix CVE-2021-32803
