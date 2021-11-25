@@ -1,6 +1,6 @@
 # NodeJS Kubernetes operator framework
 
-[![Build Status](https://travis-ci.com/dot-i/k8s-operator-node.svg?branch=master)](https://travis-ci.com/dot-i/k8s-operator-node)
+[![Build Status](https://app.travis-ci.com/dot-i/k8s-operator-node.svg?branch=master)](https://app.travis-ci.com/github/dot-i/k8s-operator-node)
 [![Version](https://img.shields.io/github/package-json/v/dot-i/k8s-operator-node.svg)](https://www.npmjs.com/package/@dot-i/k8s-operator)
 ![node](https://img.shields.io/badge/node-%3E=10-blue.svg)
 
