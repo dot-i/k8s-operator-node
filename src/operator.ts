@@ -7,7 +7,6 @@ import { serializeError } from 'serialize-error';
 import {
     KubernetesObject,
     loadYaml,
-    V1beta1CustomResourceDefinition,
     V1CustomResourceDefinition,
     V1CustomResourceDefinitionVersion,
     Watch,
@@ -165,13 +164,7 @@ export default abstract class Operator {
             if (!apiVersion || !apiVersion.startsWith('apiextensions.k8s.io/')) {
                 throw new Error("Invalid CRD yaml (expected 'apiextensions.k8s.io')");
             }
-            if (apiVersion === 'apiextensions.k8s.io/v1beta1') {
-                await this.kubeConfig
-                    .makeApiClient(k8s.ApiextensionsV1beta1Api)
-                    .createCustomResourceDefinition(crd as V1beta1CustomResourceDefinition);
-            } else {
-                await this.kubeConfig.makeApiClient(k8s.ApiextensionsV1Api).createCustomResourceDefinition(crd);
-            }
+            await this.kubeConfig.makeApiClient(k8s.ApiextensionsV1Api).createCustomResourceDefinition(crd);
             this.logger.info(`registered custom resource definition '${crd.metadata?.name}'`);
         } catch (err) {
             // API returns a 409 Conflict if CRD already exists.
@@ -364,7 +357,7 @@ export default abstract class Operator {
         await this.kubeConfig.applytoHTTPSOptions(opts);
         if (opts.headers?.Authorization) {
             request.headers = request.headers ?? {};
-            request.headers.Authorization = opts.headers.Authorization;
+            request.headers.Authorization = opts.headers.Authorization as string;
         }
         if (opts.auth) {
             const userPassword = opts.auth.split(':');

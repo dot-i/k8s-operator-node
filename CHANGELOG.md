@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 1.2.0 (2021-11-25)
+
+- upgrade @kubernetes/client-node to 0.16.1
+- upgrade dependencies
+- remove support for v1beta1 CRDs
+
 ### 1.1.7 (2021-09-29)
 
 - upgrade dependencies
