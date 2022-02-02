@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 1.2.2 (2022-02-02)
+
+- upgrade dependencies
+- removed use of serialize-error
+
 ### 1.2.1 (2022-01-16)
 
 - fix vulnerabilities

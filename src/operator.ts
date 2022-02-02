@@ -3,7 +3,6 @@ import * as FS from 'fs';
 import * as k8s from '@kubernetes/client-node';
 import * as https from 'https';
 import Axios, { AxiosRequestConfig, Method as HttpMethod } from 'axios';
-import { serializeError } from 'serialize-error';
 import {
     KubernetesObject,
     loadYaml,
@@ -414,9 +413,10 @@ export default abstract class Operator {
     }
 
     private errorToJson(err: unknown): string {
-        err = serializeError(err);
         if (typeof err === 'string') {
             return err;
+        } else if ((err as Error)?.message && (err as Error).stack) {
+            return JSON.stringify(err, ['name', 'message', 'stack']);
         }
         return JSON.stringify(err);
     }
