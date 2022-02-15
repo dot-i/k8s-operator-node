@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.2.3 (2022-02-15)
+
+- upgrade dependencies
+
 ### 1.2.2 (2022-02-02)
 
 - upgrade dependencies
