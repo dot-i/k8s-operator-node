@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 1.3.0 (2022-05-03)
+
+- support Node 12 or higher
+- switch from axios to gaxios
+- add new applyGaxiosKubeConfigAuth() method
+
 ### 1.2.3 (2022-02-15)
 
 - upgrade dependencies

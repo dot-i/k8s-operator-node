@@ -2,7 +2,6 @@ import * as Async from 'async';
 import * as FS from 'fs';
 import * as k8s from '@kubernetes/client-node';
 import * as https from 'https';
-import Axios, { AxiosRequestConfig, Method as HttpMethod } from 'axios';
 import {
     KubernetesObject,
     loadYaml,
@@ -10,6 +9,7 @@ import {
     V1CustomResourceDefinitionVersion,
     Watch,
 } from '@kubernetes/client-node';
+import { instance as gaxios, GaxiosOptions, Headers } from 'gaxios';
 
 /**
  * Logger interface.
@@ -324,7 +324,7 @@ export default abstract class Operator {
      * @param finalizers The array of finalizers for this resource
      */
     protected async setResourceFinalizers(meta: ResourceMeta, finalizers: string[]): Promise<void> {
-        const request: AxiosRequestConfig = {
+        const options: GaxiosOptions = {
             method: 'PATCH',
             url: `${this.resourcePathBuilders[meta.id](meta)}/${meta.name}`,
             data: {
@@ -337,9 +337,9 @@ export default abstract class Operator {
             },
         };
 
-        await this.applyAxiosKubeConfigAuth(request);
+        await this.applyGaxiosKubeConfigAuth(options);
 
-        await Axios.request(request).catch((error) => {
+        await gaxios.request(options).catch((error) => {
             if (error) {
                 this.logger.error(this.errorToJson(error));
                 return;
@@ -351,7 +351,12 @@ export default abstract class Operator {
      * Apply authentication to an axios request config.
      * @param request the axios request config
      */
-    protected async applyAxiosKubeConfigAuth(request: AxiosRequestConfig): Promise<void> {
+    protected async applyAxiosKubeConfigAuth(request: {
+        headers?: Record<string, string | number | boolean>;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        httpsAgent?: any;
+        auth?: { username: string; password: string };
+    }): Promise<void> {
         const opts: https.RequestOptions = {};
         await this.kubeConfig.applytoHTTPSOptions(opts);
         if (opts.headers?.Authorization) {
@@ -374,8 +379,35 @@ export default abstract class Operator {
         }
     }
 
+    /**
+     * Apply authentication to an axios request config.
+     * @param options the axios request config
+     */
+    protected async applyGaxiosKubeConfigAuth(options: {
+        headers?: Headers;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        agent?: any;
+    }): Promise<void> {
+        const opts: https.RequestOptions = {};
+        await this.kubeConfig.applytoHTTPSOptions(opts);
+        if (opts.headers?.Authorization) {
+            options.headers = options.headers ?? {};
+            options.headers.Authorization = opts.headers.Authorization as string;
+        } else if (opts.auth) {
+            options.headers = options.headers ?? {};
+            options.headers.Authorization = `Basic ${Buffer.from(opts.auth).toString('base64')}`;
+        }
+        if (opts.ca || opts.cert || opts.key) {
+            options.agent = new https.Agent({
+                ca: opts.ca,
+                cert: opts.cert,
+                key: opts.key,
+            });
+        }
+    }
+
     private async resourceStatusRequest(
-        method: HttpMethod,
+        method: 'PUT' | 'PATCH',
         meta: ResourceMeta,
         status: unknown
     ): Promise<ResourceMeta | null> {
@@ -392,19 +424,19 @@ export default abstract class Operator {
         if (meta.namespace) {
             body.metadata.namespace = meta.namespace;
         }
-        const request: AxiosRequestConfig = {
+        const options: GaxiosOptions = {
             method,
             url: this.resourcePathBuilders[meta.id](meta) + `/${meta.name}/status`,
             data: body,
         };
-        if (method === 'patch' || method === 'PATCH') {
-            request.headers = {
+        if (method === 'PATCH') {
+            options.headers = {
                 'Content-Type': 'application/merge-patch+json',
             };
         }
-        await this.applyAxiosKubeConfigAuth(request);
+        await this.applyGaxiosKubeConfigAuth(options);
         try {
-            const response = await Axios.request<KubernetesObject>(request);
+            const response = await gaxios.request<KubernetesObject>(options);
             return response ? ResourceMetaImpl.createWithId(meta.id, response.data) : null;
         } catch (err) {
             this.logger.error(this.errorToJson(err));
