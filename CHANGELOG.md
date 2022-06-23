@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.3.1 (2022-06-23)
+
+- upgrade dependencies
+
 ### 1.3.0 (2022-05-03)
 
 - support Node 12 or higher
