@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.3.2 (2022-07-06)
+
+- upgrade dependencies
+
 ### 1.3.1 (2022-06-23)
 
 - upgrade dependencies
