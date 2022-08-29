@@ -105,8 +105,8 @@ export class ResourceMetaImpl implements ResourceMeta {
 export default abstract class Operator {
     protected kubeConfig: k8s.KubeConfig;
     protected k8sApi: k8s.CoreV1Api;
+    protected logger: OperatorLogger;
 
-    private logger: OperatorLogger;
     private resourcePathBuilders: Record<string, (meta: ResourceMeta) => string> = {};
     private watchRequests: Record<string, { abort(): void }> = {};
     private eventQueue: Async.QueueObject<{

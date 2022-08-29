@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 1.3.3 (2022-08-29)
+
+- made 'logger' protected
+- upgrade dev dependencies
+
 ### 1.3.2 (2022-07-06)
 
 - upgrade dependencies
