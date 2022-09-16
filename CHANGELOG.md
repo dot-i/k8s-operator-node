@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.3.4 (2022-09-19)
+
+- (dependabot) bump jose from 4.8.3 to 4.9.3
+
 ### 1.3.3 (2022-08-29)
 
 - made 'logger' protected
