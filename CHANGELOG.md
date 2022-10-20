@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.3.5 (2022-09-19)
+
+- upgrade dependencies
+
 ### 1.3.4 (2022-09-19)
 
 - (dependabot) bump jose from 4.8.3 to 4.9.3
