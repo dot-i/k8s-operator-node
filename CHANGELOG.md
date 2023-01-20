@@ -1,5 +1,9 @@
 # CHANGELOG
 
+### 1.3.7 (2023-01-20)
+
+- bump @kubernetes/client-node to 0.18.0
+
 ### 1.3.6 (2022-12-14)
 
 - bump qs from 6.5.2 to 6.5.3
