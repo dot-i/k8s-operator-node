@@ -1,5 +1,10 @@
 # CHANGELOG
 
+### 1.3.8 (2023-03-21)
+
+- bump @kubernetes/client-node to 0.18.1
+- bump gaxios to 5.1.0
+
 ### 1.3.7 (2023-01-20)
 
 - bump @kubernetes/client-node to 0.18.0
