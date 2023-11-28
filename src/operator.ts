@@ -358,7 +358,7 @@ export default abstract class Operator {
         auth?: { username: string; password: string };
     }): Promise<void> {
         const opts: https.RequestOptions = {};
-        await this.kubeConfig.applytoHTTPSOptions(opts);
+        await this.kubeConfig.applyToHTTPSOptions(opts);
         if (opts.headers?.Authorization) {
             request.headers = request.headers ?? {};
             request.headers.Authorization = opts.headers.Authorization as string;
@@ -389,7 +389,7 @@ export default abstract class Operator {
         agent?: any;
     }): Promise<void> {
         const opts: https.RequestOptions = {};
-        await this.kubeConfig.applytoHTTPSOptions(opts);
+        await this.kubeConfig.applyToHTTPSOptions(opts);
         if (opts.headers?.Authorization) {
             options.headers = options.headers ?? {};
             options.headers.Authorization = opts.headers.Authorization as string;
