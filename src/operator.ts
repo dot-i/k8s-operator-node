@@ -1,24 +1,24 @@
-import * as Async from 'async';
-import * as FS from 'fs';
-import * as k8s from '@kubernetes/client-node';
-import * as https from 'https';
+import * as Async from 'async'
+import * as FS from 'fs'
+import * as k8s from '@kubernetes/client-node'
+import * as https from 'https'
 import {
     KubernetesObject,
     loadYaml,
     V1CustomResourceDefinition,
     V1CustomResourceDefinitionVersion,
     Watch,
-} from '@kubernetes/client-node';
-import { instance as gaxios, GaxiosOptions, Headers } from 'gaxios';
+} from '@kubernetes/client-node'
+import { instance as gaxios, GaxiosOptions, Headers } from 'gaxios'
 
 /**
  * Logger interface.
  */
 export interface OperatorLogger {
-    debug(message: string): void;
-    info(message: string): void;
-    warn(message: string): void;
-    error(message: string): void;
+    debug(message: string): void
+    info(message: string): void
+    warn(message: string): void
+    error(message: string): void
 }
 
 class NullLogger implements OperatorLogger {
@@ -53,49 +53,49 @@ export enum ResourceEventType {
  * An event on a Kubernetes resource.
  */
 export interface ResourceEvent {
-    meta: ResourceMeta;
-    type: ResourceEventType;
-    object: KubernetesObject;
+    meta: ResourceMeta
+    type: ResourceEventType
+    object: KubernetesObject
 }
 
 /**
  * Some meta information on the resource.
  */
 export interface ResourceMeta {
-    name: string;
-    namespace?: string;
-    id: string;
-    resourceVersion: string;
-    apiVersion: string;
-    kind: string;
+    name: string
+    namespace?: string
+    id: string
+    resourceVersion: string
+    apiVersion: string
+    kind: string
 }
 
 export class ResourceMetaImpl implements ResourceMeta {
     public static createWithId(id: string, object: KubernetesObject): ResourceMeta {
-        return new ResourceMetaImpl(id, object);
+        return new ResourceMetaImpl(id, object)
     }
 
     public static createWithPlural(plural: string, object: KubernetesObject): ResourceMeta {
-        return new ResourceMetaImpl(`${plural}.${object.apiVersion}`, object);
+        return new ResourceMetaImpl(`${plural}.${object.apiVersion}`, object)
     }
 
-    public id: string;
-    public name: string;
-    public namespace?: string;
-    public resourceVersion: string;
-    public apiVersion: string;
-    public kind: string;
+    public id: string
+    public name: string
+    public namespace?: string
+    public resourceVersion: string
+    public apiVersion: string
+    public kind: string
 
     private constructor(id: string, object: KubernetesObject) {
         if (!object.metadata?.name || !object.metadata?.resourceVersion || !object.apiVersion || !object.kind) {
-            throw Error(`Malformed event object for '${id}'`);
+            throw Error(`Malformed event object for '${id}'`)
         }
-        this.id = id;
-        this.name = object.metadata.name;
-        this.namespace = object.metadata.namespace;
-        this.resourceVersion = object.metadata.resourceVersion;
-        this.apiVersion = object.apiVersion;
-        this.kind = object.kind;
+        this.id = id
+        this.name = object.metadata.name
+        this.namespace = object.metadata.namespace
+        this.resourceVersion = object.metadata.resourceVersion
+        this.apiVersion = object.apiVersion
+        this.kind = object.kind
     }
 }
 
@@ -103,80 +103,80 @@ export class ResourceMetaImpl implements ResourceMeta {
  * Base class for an operator.
  */
 export default abstract class Operator {
-    protected kubeConfig: k8s.KubeConfig;
-    protected k8sApi: k8s.CoreV1Api;
-    protected logger: OperatorLogger;
+    protected kubeConfig: k8s.KubeConfig
+    protected k8sApi: k8s.CoreV1Api
+    protected logger: OperatorLogger
 
-    private resourcePathBuilders: Record<string, (meta: ResourceMeta) => string> = {};
-    private watchRequests: Record<string, { abort(): void }> = {};
+    private resourcePathBuilders: Record<string, (meta: ResourceMeta) => string> = {}
+    private watchRequests: Record<string, { abort(): void }> = {}
     private eventQueue: Async.QueueObject<{
-        event: ResourceEvent;
-        onEvent: (event: ResourceEvent) => Promise<void>;
-    }>;
+        event: ResourceEvent
+        onEvent: (event: ResourceEvent) => Promise<void>
+    }>
 
     /**
      * Constructs an operator.
      */
     constructor(logger?: OperatorLogger) {
-        this.kubeConfig = new k8s.KubeConfig();
-        this.kubeConfig.loadFromDefault();
-        this.k8sApi = this.kubeConfig.makeApiClient(k8s.CoreV1Api);
-        this.logger = logger || new NullLogger();
+        this.kubeConfig = new k8s.KubeConfig()
+        this.kubeConfig.loadFromDefault()
+        this.k8sApi = this.kubeConfig.makeApiClient(k8s.CoreV1Api)
+        this.logger = logger || new NullLogger()
 
         // Use an async queue to make sure we treat each incoming event sequentially using async/await
         this.eventQueue = Async.queue<{
-            onEvent: (event: ResourceEvent) => Promise<void>;
-            event: ResourceEvent;
-        }>(async (args) => await args.onEvent(args.event));
+            onEvent: (event: ResourceEvent) => Promise<void>
+            event: ResourceEvent
+        }>(async (args) => await args.onEvent(args.event))
     }
 
     /**
      * Run the operator, typically called from main().
      */
     public async start(): Promise<void> {
-        await this.init();
+        await this.init()
     }
 
     public stop(): void {
         for (const req of Object.values(this.watchRequests)) {
-            req.abort();
+            req.abort()
         }
     }
 
     /**
      * Initialize the operator, add your resource watchers here.
      */
-    protected abstract init(): Promise<void>;
+    protected abstract init(): Promise<void>
 
     /**
      * Register a custom resource defintion.
      * @param crdFile The path to the custom resource definition's YAML file
      */
     protected async registerCustomResourceDefinition(crdFile: string): Promise<{
-        group: string;
-        versions: V1CustomResourceDefinitionVersion[];
-        plural: string;
+        group: string
+        versions: V1CustomResourceDefinitionVersion[]
+        plural: string
     }> {
-        const crd = loadYaml(FS.readFileSync(crdFile, 'utf8')) as V1CustomResourceDefinition;
+        const crd = loadYaml(FS.readFileSync(crdFile, 'utf8')) as V1CustomResourceDefinition
         try {
-            const apiVersion = crd.apiVersion as string;
+            const apiVersion = crd.apiVersion as string
             if (!apiVersion || !apiVersion.startsWith('apiextensions.k8s.io/')) {
-                throw new Error("Invalid CRD yaml (expected 'apiextensions.k8s.io')");
+                throw new Error("Invalid CRD yaml (expected 'apiextensions.k8s.io')")
             }
-            await this.kubeConfig.makeApiClient(k8s.ApiextensionsV1Api).createCustomResourceDefinition(crd);
-            this.logger.info(`registered custom resource definition '${crd.metadata?.name}'`);
+            await this.kubeConfig.makeApiClient(k8s.ApiextensionsV1Api).createCustomResourceDefinition(crd)
+            console.log(`registered custom resource definition '${crd.metadata?.name}'`)
         } catch (err) {
             // API returns a 409 Conflict if CRD already exists.
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             if ((err as any).response?.statusCode !== 409) {
-                throw err;
+                throw err
             }
         }
         return {
             group: crd.spec.group,
             versions: crd.spec.versions,
             plural: crd.spec.names.plural,
-        };
+        }
     }
 
     /**
@@ -187,12 +187,12 @@ export default abstract class Operator {
      * @param namespace Optional namespace to include in the uri
      */
     protected getCustomResourceApiUri(group: string, version: string, plural: string, namespace?: string): string {
-        let path = group ? `/apis/${group}/${version}/` : `/api/${version}/`;
+        let path = group ? `/apis/${group}/${version}/` : `/api/${version}/`
         if (namespace) {
-            path += `namespaces/${namespace}/`;
+            path += `namespaces/${namespace}/`
         }
-        path += plural;
-        return this.k8sApi.basePath + path;
+        path += plural
+        return this.k8sApi.basePath + path
     }
 
     /**
@@ -210,22 +210,22 @@ export default abstract class Operator {
         onEvent: (event: ResourceEvent) => Promise<void>,
         namespace?: string
     ): Promise<void> {
-        const apiVersion = group ? `${group}/${version}` : `${version}`;
-        const id = `${plural}.${apiVersion}`;
+        const apiVersion = group ? `${group}/${version}` : `${version}`
+        const id = `${plural}.${apiVersion}`
 
         this.resourcePathBuilders[id] = (meta: ResourceMeta): string =>
-            this.getCustomResourceApiUri(group, version, plural, meta.namespace);
+            this.getCustomResourceApiUri(group, version, plural, meta.namespace)
 
         //
         // Create "infinite" watch so we automatically recover in case the stream stops or gives an error.
         //
-        let uri = group ? `/apis/${group}/${version}/` : `/api/${version}/`;
+        let uri = group ? `/apis/${group}/${version}/` : `/api/${version}/`
         if (namespace) {
-            uri += `namespaces/${namespace}/`;
+            uri += `namespaces/${namespace}/`
         }
-        uri += plural;
+        uri += plural
 
-        const watch = new Watch(this.kubeConfig);
+        const watch = new Watch(this.kubeConfig)
 
         const startWatch = (): Promise<void> =>
             watch
@@ -243,22 +243,20 @@ export default abstract class Operator {
                         }),
                     (err) => {
                         if (err) {
-                            this.logger.error(`watch on resource ${id} failed: ${this.errorToJson(err)}`);
-                            process.exit(1);
+                            console.log(`watch on resource ${id} failed: ${this.errorToJson(err)}`)
                         }
-                        this.logger.debug(`restarting watch on resource ${id}`);
-                        setTimeout(startWatch, 200);
+                        console.log(`restarting watch on resource ${id}`)
+                        setTimeout(startWatch, 200)
                     }
                 )
                 .catch((reason) => {
-                    this.logger.error(`watch on resource ${id} failed: ${this.errorToJson(reason)}`);
-                    process.exit(1);
+                    console.log(`watch on resource ${id} failed: ${this.errorToJson(reason)}`)
                 })
-                .then((req) => (this.watchRequests[id] = req));
+                .then((req) => (this.watchRequests[id] = req))
 
-        await startWatch();
+        await startWatch()
 
-        this.logger.info(`watching resource ${id}`);
+        console.log(`watching resource ${id}`)
     }
 
     /**
@@ -267,7 +265,7 @@ export default abstract class Operator {
      * @param status The status body to set
      */
     protected async setResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
-        return await this.resourceStatusRequest('PUT', meta, status);
+        return await this.resourceStatusRequest('PUT', meta, status)
     }
 
     /**
@@ -276,7 +274,7 @@ export default abstract class Operator {
      * @param status The status body to set in JSON Merge Patch format (https://tools.ietf.org/html/rfc7386)
      */
     protected async patchResourceStatus(meta: ResourceMeta, status: unknown): Promise<ResourceMeta | null> {
-        return await this.resourceStatusRequest('PATCH', meta, status);
+        return await this.resourceStatusRequest('PATCH', meta, status)
     }
 
     /**
@@ -294,28 +292,28 @@ export default abstract class Operator {
         finalizer: string,
         deleteAction: (event: ResourceEvent) => Promise<void>
     ): Promise<boolean> {
-        const metadata = event.object.metadata;
+        const metadata = event.object.metadata
         if (!metadata || (event.type !== ResourceEventType.Added && event.type !== ResourceEventType.Modified)) {
-            return false;
+            return false
         }
         if (!metadata.deletionTimestamp && (!metadata.finalizers || !metadata.finalizers.includes(finalizer))) {
             // Make sure our finalizer is added when the resource is first created.
-            const finalizers = metadata.finalizers ?? [];
-            finalizers.push(finalizer);
-            await this.setResourceFinalizers(event.meta, finalizers);
-            return true;
+            const finalizers = metadata.finalizers ?? []
+            finalizers.push(finalizer)
+            await this.setResourceFinalizers(event.meta, finalizers)
+            return true
         } else if (metadata.deletionTimestamp) {
             if (metadata.finalizers && metadata.finalizers.includes(finalizer)) {
                 // Resource is marked for deletion with our finalizer still set. So run the delete action
                 // and clear the finalizer, so the resource will actually be deleted by Kubernetes.
-                await deleteAction(event);
-                const finalizers = metadata.finalizers.filter((f) => f !== finalizer);
-                await this.setResourceFinalizers(event.meta, finalizers);
+                await deleteAction(event)
+                const finalizers = metadata.finalizers.filter((f) => f !== finalizer)
+                await this.setResourceFinalizers(event.meta, finalizers)
             }
             // Resource is marked for deletion, so don't process it further.
-            return true;
+            return true
         }
-        return false;
+        return false
     }
 
     /**
@@ -335,16 +333,16 @@ export default abstract class Operator {
             headers: {
                 'Content-Type': 'application/merge-patch+json',
             },
-        };
+        }
 
-        await this.applyGaxiosKubeConfigAuth(options);
+        await this.applyGaxiosKubeConfigAuth(options)
 
         await gaxios.request(options).catch((error) => {
             if (error) {
-                this.logger.error(this.errorToJson(error));
-                return;
+                console.log(this.errorToJson(error))
+                return
             }
-        });
+        })
     }
 
     /**
@@ -352,30 +350,30 @@ export default abstract class Operator {
      * @param request the axios request config
      */
     protected async applyAxiosKubeConfigAuth(request: {
-        headers?: Record<string, string | number | boolean>;
+        headers?: Record<string, string | number | boolean>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        httpsAgent?: any;
-        auth?: { username: string; password: string };
+        httpsAgent?: any
+        auth?: { username: string, password: string }
     }): Promise<void> {
-        const opts: https.RequestOptions = {};
-        await this.kubeConfig.applyToHTTPSOptions(opts);
+        const opts: https.RequestOptions = {}
+        await this.kubeConfig.applyToHTTPSOptions(opts)
         if (opts.headers?.Authorization) {
-            request.headers = request.headers ?? {};
-            request.headers.Authorization = opts.headers.Authorization as string;
+            request.headers = request.headers ?? {}
+            request.headers.Authorization = opts.headers.Authorization as string
         }
         if (opts.auth) {
-            const userPassword = opts.auth.split(':');
+            const userPassword = opts.auth.split(':')
             request.auth = {
                 username: userPassword[0],
                 password: userPassword[1],
-            };
+            }
         }
         if (opts.ca || opts.cert || opts.key) {
             request.httpsAgent = new https.Agent({
                 ca: opts.ca,
                 cert: opts.cert,
                 key: opts.key,
-            });
+            })
         }
     }
 
@@ -384,25 +382,25 @@ export default abstract class Operator {
      * @param options the axios request config
      */
     protected async applyGaxiosKubeConfigAuth(options: {
-        headers?: Headers;
+        headers?: Headers
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        agent?: any;
+        agent?: any
     }): Promise<void> {
-        const opts: https.RequestOptions = {};
-        await this.kubeConfig.applyToHTTPSOptions(opts);
+        const opts: https.RequestOptions = {}
+        await this.kubeConfig.applyToHTTPSOptions(opts)
         if (opts.headers?.Authorization) {
-            options.headers = options.headers ?? {};
-            options.headers.Authorization = opts.headers.Authorization as string;
+            options.headers = options.headers ?? {}
+            options.headers.Authorization = opts.headers.Authorization as string
         } else if (opts.auth) {
-            options.headers = options.headers ?? {};
-            options.headers.Authorization = `Basic ${Buffer.from(opts.auth).toString('base64')}`;
+            options.headers = options.headers ?? {}
+            options.headers.Authorization = `Basic ${Buffer.from(opts.auth).toString('base64')}`
         }
         if (opts.ca || opts.cert || opts.key) {
             options.agent = new https.Agent({
                 ca: opts.ca,
                 cert: opts.cert,
                 key: opts.key,
-            });
+            })
         }
     }
 
@@ -420,36 +418,36 @@ export default abstract class Operator {
                 resourceVersion: meta.resourceVersion,
             },
             status,
-        };
+        }
         if (meta.namespace) {
-            body.metadata.namespace = meta.namespace;
+            body.metadata.namespace = meta.namespace
         }
         const options: GaxiosOptions = {
             method,
             url: this.resourcePathBuilders[meta.id](meta) + `/${meta.name}/status`,
             data: body,
-        };
+        }
         if (method === 'PATCH') {
             options.headers = {
                 'Content-Type': 'application/merge-patch+json',
-            };
+            }
         }
-        await this.applyGaxiosKubeConfigAuth(options);
+        await this.applyGaxiosKubeConfigAuth(options)
         try {
-            const response = await gaxios.request<KubernetesObject>(options);
-            return response ? ResourceMetaImpl.createWithId(meta.id, response.data) : null;
+            const response = await gaxios.request<KubernetesObject>(options)
+            return response ? ResourceMetaImpl.createWithId(meta.id, response.data) : null
         } catch (err) {
-            this.logger.error(this.errorToJson(err));
-            return null;
+            console.log(this.errorToJson(err))
+            return null
         }
     }
 
     private errorToJson(err: unknown): string {
         if (typeof err === 'string') {
-            return err;
+            return err
         } else if ((err as Error)?.message && (err as Error).stack) {
-            return JSON.stringify(err, ['name', 'message', 'stack']);
+            return JSON.stringify(err, ['name', 'message', 'stack'])
         }
-        return JSON.stringify(err);
+        return JSON.stringify(err)
     }
 }
