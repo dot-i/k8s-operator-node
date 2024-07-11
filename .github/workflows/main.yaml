@@ -1,0 +1,49 @@
+# Given facts:
+# * We don't allow manual tagging, but let the workflow create them after tests have passed.
+# * We don't let workflows be triggered by events coming from tags
+# * We use `npm run release` (without automated tagging) which only bumps version and creates changelog and commit message with title 'chore(release): v${semverVersion}'
+# * Pipeline detects the release title and after tests pass, creates artifacts (images) and makes full tag copies (and github release) to allow release patching.
+name: Build test push release
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '*'
+env:
+  COMMIT_MSG: ${{ github.event.head_commit.message }}
+  CACHE_REGISTRY: ghcr.io
+  CACHE_REPO: linode/apl-k8s-operator-node
+  REPO: otomi/apl-k8s-operator-node
+  DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_OTOMI_TOKEN }}
+  DOCKER_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+  BOT_EMAIL: ${{ vars.BOT_EMAIL }}
+  BOT_USERNAME: ${{ vars.BOT_USERNAME }}
+  BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+jobs:
+  check-build-push-clients:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - name: Check for changes
+        id: vars
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+          echo '::set-output name=diff::1'
+      - uses: actions/setup-node@v2
+        if: steps.vars.outputs.diff == 1
+        with:
+          node-version: '14'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@linode'
+      - name: Build and publish clients
+        if: steps.vars.outputs.diff == 1
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "TBD"
