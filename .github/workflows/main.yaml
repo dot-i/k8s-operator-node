@@ -20,65 +20,30 @@ env:
   BOT_EMAIL: ${{ vars.BOT_EMAIL }}
   BOT_USERNAME: ${{ vars.BOT_USERNAME }}
   BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-
 jobs:
-  build-test-push-release:
-    if: "((contains(github.event.head_commit.message, 'chore(release)') && github.ref == 'refs/heads/main') || !contains(github.event.head_commit.message, 'chore(release)')) && !contains(github.event.head_commit.message, 'ci skip') && !startsWith(github.ref, 'refs/tags/')"
+  check-build-push-clients:
     runs-on: ubuntu-latest
     steps:
-      - name: Set env
-        run: |
-          set -u
-          tag=$(echo $(basename $GITHUB_REF))
-          echo "Creating tag: $tag"
-          echo "TAG=$tag" >> $GITHUB_ENV
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: CI tests, image build and push tag to cache for main or branch
-        uses: whoan/docker-build-with-cache-action@v6
+        uses: actions/checkout@v2
         with:
-          username: ${{ env.BOT_USERNAME }}
-          password: '${{ env.BOT_TOKEN }}'
-          registry: ${{ env.CACHE_REGISTRY }}
-          image_name: ${{ env.CACHE_REPO }}
-          image_tag: ${{ env.TAG }}
-          build_extra_args: '--build-arg=NPM_TOKEN=${{ secrets.GITHUB_TOKEN }}'
-      - name: Retag from cache and push
-        run: |
-          set -u
-          docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-          docker tag $CACHE_REGISTRY/$CACHE_REPO:$TAG $REPO:$TAG
-          docker push $REPO:$TAG
-      - if: "contains(github.event.head_commit.message, 'chore(release)')"
-        name: Create latest and push git tag
-        id: git_tag
-        run: |
-          set -u
-          docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-          docker tag $REPO:$TAG $REPO:latest
-          docker push $REPO:latest
-          release_tag=v${COMMIT_MSG#* }
-          echo tag=$release_tag >> $GITHUB_OUTPUT
-          echo "Releasing $REPO:$release_tag"
-          docker tag $REPO:$TAG $REPO:$release_tag
-          docker push $REPO:$release_tag
-          git config --global user.email $BOT_EMAIL
-          git config --global user.name $BOT_USERNAME
-          echo "machine github.com login $BOT_USERNAME password $BOT_TOKEN" > ~/.netrc
-          git tag -am "$COMMIT_MSG" $release_tag && git push --follow-tags origin main
-          changelog=$(cat CHANGELOG.md | awk -v n=2 '/### \[[0-9]*/&&!--n{exit}{print}')
-          # now do some escaping because github does not help us here:
-          changelog="${changelog//'%'/'%25'}"
-          changelog="${changelog//$'\n'/'%0A'}"
-          changelog="${changelog//$'\r'/'%0D'}"
-          echo changes=$changelog >> $GITHUB_OUTPUT
-      - if: "contains(github.event.head_commit.message, 'chore(release)')"
-        name: Create GitHub release
-        uses: ncipollo/release-action@v1.12.0
+          fetch-depth: 2
+      - name: Check for changes
+        id: vars
         env:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+          echo '::set-output name=diff::1'
+      - uses: actions/setup-node@v2
+        if: steps.vars.outputs.diff == 1
         with:
-          tag: ${{ steps.git_tag.outputs.tag }}
-          name: Release ${{ steps.git_tag.outputs.tag }}
-          body: ${{ steps.git_tag.outputs.changes }}
-
+          node-version: '14'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@linode'
+      - name: Build and publish clients
+        if: steps.vars.outputs.diff == 1
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "TBD"
