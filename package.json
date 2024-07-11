@@ -1,14 +1,10 @@
 {
-  "name": "@dot-i/k8s-operator",
+  "name": "@linode/apl-k8s-operator",
   "version": "1.3.9",
   "description": "Build Kubernetes operators in NodeJS (and TypeScript)",
-  "author": {
-    "name": "Nico Francois",
-    "email": "nico.francois@dot-i.com"
-  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/dot-i/k8s-operator-node"
+    "url": "https://github.com/linode/apl-k8s-operator-node"
   },
   "files": [
     "dist/*.ts",
