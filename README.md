@@ -1,7 +1,7 @@
 # NodeJS Kubernetes operator framework
 
-[![Build Status](https://app.travis-ci.com/dot-i/k8s-operator-node.svg?branch=master)](https://app.travis-ci.com/github/dot-i/k8s-operator-node)
-[![Version](https://img.shields.io/github/package-json/v/dot-i/k8s-operator-node.svg)](https://www.npmjs.com/package/@dot-i/k8s-operator)
+[![Build Status](https://github.com/linode/apl-k8s-operator-node/actions/workflows/main.yaml)](https://github.com/linode/apl-k8s-operator-node)
+[![Version](https://github.com/linode/apl-k8s-operator-node)](https://github.com/linode/apl-k8s-operator-node)
 ![node](https://img.shields.io/badge/node-%3E=10-blue.svg)
 
 The **NodeJS** operator framework for **Kubernetes** is implemented in
@@ -14,7 +14,7 @@ using the `@kubernetes/client-node` library.
 ## Installation
 
 ```console
-npm install @dot-i/k8s-operator
+npm install linode/apl-k8s-operator-node
 ```
 
 ## Basic usage
@@ -24,7 +24,7 @@ npm install @dot-i/k8s-operator
 To implement your operator and watch one or more resources, create a sub-class from `Operator`.
 
 ```javascript
-import Operator from '@dot-i/k8s-operator';
+import Operator from 'linode/apl-k8s-operator-node';
 
 export default class MyOperator extends Operator {
     protected async init() {
@@ -167,7 +167,7 @@ You can optionally register a custom resource definition from code, to auto-crea
 ### Operator that watches namespaces
 
 ```javascript
-import Operator, { ResourceEventType, ResourceEvent } from '@dot-i/k8s-operator';
+import Operator, { ResourceEventType, ResourceEvent } from 'linode/apl-k8s-operator-node';
 
 export default class MyOperator extends Operator {
     protected async init() {
@@ -213,7 +213,7 @@ export interface MyCustomResourceStatus {
 Your operator can then watch your resource like this:
 
 ```javascript
-import Operator, { ResourceEventType, ResourceEvent } from '@dot-i/k8s-operator';
+import Operator, { ResourceEventType, ResourceEvent } from 'linode/apl-k8s-operator-node';
 
 export default class MyOperator extends Operator {
     constructor() {
@@ -222,10 +222,10 @@ export default class MyOperator extends Operator {
 
     protected async init() {
         // NOTE: we pass the plural name of the resource
-        await this.watchResource('dot-i.com', 'v1', 'mycustomresources', async (e) => {
+        await this.watchResource('groupToWatch', 'v1', 'mycustomresources', async (e) => {
             try {
                 if (e.type === ResourceEventType.Added || e.type === ResourceEventType.Modified) {
-                    if (!await this.handleResourceFinalizer(e, 'mycustomresources.dot-i.com', (event) => this.resourceDeleted(event))) {
+                    if (!await this.handleResourceFinalizer(e, 'mycustomresources', (event) => this.resourceDeleted(event))) {
                         await this.resourceModified(e);
                     }
                 }
