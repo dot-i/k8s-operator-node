@@ -1,7 +1,7 @@
 # NodeJS Kubernetes operator framework
 
-[![Build Status](https://github.com/linode/apl-k8s-operator-node/actions/workflows/main.yaml)](https://github.com/linode/apl-k8s-operator-node)
-[![Version](https://github.com/linode/apl-k8s-operator-node)](https://github.com/linode/apl-k8s-operator-node)
+[![Build Status](https://github.com/linode/apl-k8s-operator-node/actions/workflows/main.yaml/badge.svg)](https://github.com/linode/apl-k8s-operator-node/actions/workflows/main.yaml)
+<!-- [![Version](https://github.com/linode/apl-k8s-operator-node)](https://github.com/linode/apl-k8s-operator-node) -->
 ![node](https://img.shields.io/badge/node-%3E=10-blue.svg)
 
 The **NodeJS** operator framework for **Kubernetes** is implemented in
