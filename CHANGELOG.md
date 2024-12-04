@@ -1,6 +1,13 @@
 # CHANGELOG
 
-### 1.3.9 (2023-22-28)
+### 2.0.0 (2024-12-04)
+
+- bump @kubernetes/client-node to 0.23.2
+- bump gaxios to 6.7.1
+- fix other dependencies
+- only support Node 18 or higher
+
+### 1.3.9 (2023-11-28)
 
 - bump @kubernetes/client-node to 0.20.0
 - bump gaxios to 5.1.3
