@@ -163,7 +163,9 @@ export default abstract class Operator {
             if (!apiVersion || !apiVersion.startsWith('apiextensions.k8s.io/')) {
                 throw new Error("Invalid CRD yaml (expected 'apiextensions.k8s.io')");
             }
-            await this.kubeConfig.makeApiClient(k8s.ApiextensionsV1Api).createCustomResourceDefinition(crd);
+            await this.kubeConfig.makeApiClient(k8s.ApiextensionsV1Api).createCustomResourceDefinition({
+                body: crd
+            });
             this.logger.info(`registered custom resource definition '${crd.metadata?.name}'`);
         } catch (err) {
             // API returns a 409 Conflict if CRD already exists.
@@ -192,7 +194,7 @@ export default abstract class Operator {
             path += `namespaces/${namespace}/`;
         }
         path += plural;
-        return this.k8sApi.basePath + path;
+        return this.kubeConfig.getCurrentCluster()?.server + path;
     }
 
     /**
@@ -227,36 +229,36 @@ export default abstract class Operator {
 
         const watch = new Watch(this.kubeConfig);
 
-        const startWatch = (): Promise<void> =>
+        const startWatch = (): Promise<void | AbortController> =>
             watch
-                .watch(
-                    uri,
-                    {},
-                    (phase, obj) =>
-                        this.eventQueue.push({
-                            event: {
-                                meta: ResourceMetaImpl.createWithPlural(plural, obj),
-                                object: obj,
-                                type: phase as ResourceEventType,
-                            },
-                            onEvent,
-                        }),
-                    (err) => {
-                        if (err) {
-                            this.logger.error(`watch on resource ${id} failed: ${this.errorToJson(err)}`);
-                            process.exit(1);
-                        }
-                        this.logger.debug(`restarting watch on resource ${id}`);
-                        setTimeout(startWatch, 200);
-                    }
-                )
-                .catch((reason) => {
-                    this.logger.error(`watch on resource ${id} failed: ${this.errorToJson(reason)}`);
+              .watch(
+                uri,
+                {},
+                (phase, obj) =>
+                  this.eventQueue.push({
+                    event: {
+                      meta: ResourceMetaImpl.createWithPlural(plural, obj),
+                      object: obj,
+                      type: phase as ResourceEventType,
+                    },
+                    onEvent,
+                  }),
+                (err) => {
+                  if (err) {
+                    this.logger.error(`watch on resource ${id} failed: ${this.errorToJson(err)}`);
                     process.exit(1);
-                })
-                .then((req) => (this.watchRequests[id] = req));
-
-        await startWatch();
+                  }
+                  this.logger.debug(`restarting watch on resource ${id}`);
+                  setTimeout(startWatch, 200);
+                },
+              )
+              .catch((reason) => {
+                this.logger.error(`watch on resource ${id} failed: ${this.errorToJson(reason)}`);
+                process.exit(1);
+              })
+              .then((req) => (this.watchRequests[id] = req));
+      
+          await startWatch();
 
         this.logger.info(`watching resource ${id}`);
     }

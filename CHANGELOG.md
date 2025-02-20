@@ -1,5 +1,11 @@
 # CHANGELOG
 
+### 3.0.0 (2025-02-20)
+
+- bump @kubernetes/client-node to 1.0.0
+- bump some other dependencies
+- only support Node 18 or higher
+
 ### 2.0.0 (2024-12-04)
 
 - bump @kubernetes/client-node to 0.23.2
