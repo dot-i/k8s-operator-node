@@ -13,11 +13,26 @@
   "files": [
     "dist/*.ts",
     "dist/*.js",
+    "dist/*.mjs",
+    "dist/*.mts",
     "*.md"
   ],
   "license": "Apache-2.0",
   "main": "dist/operator.js",
+  "module": "dist/operator.mjs",
   "types": "dist/operator.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/operator.d.mts",
+        "default": "./dist/operator.mjs"
+      },
+      "require": {
+        "types": "./dist/operator.d.ts",
+        "default": "./dist/operator.js"
+      }
+    }
+  },
   "engines": {
     "node": ">=18"
   },
@@ -35,15 +50,15 @@
     "@types/ws": "^8.18.0",
     "eslint": "^9.22.0",
     "mkdirp": "^3.0.1",
-    "ts-node": "^10.9.2",
+    "tsup": "^8.5.0",
     "typescript": "^5.8.2",
     "typescript-eslint": "^8.26.1"
   },
   "scripts": {
     "lint": "eslint ./src",
     "clean": "rm -Rf node_modules/ dist/",
-    "build": "tsc",
-    "watch": "tsc --watch",
+    "build": "tsup src/ --format cjs,esm --dts",
+    "watch": "tsup src/ --format cjs,esm --dts --watch",
     "prepare": "rm -Rf dist/ && npm run build"
   },
   "keywords": [
